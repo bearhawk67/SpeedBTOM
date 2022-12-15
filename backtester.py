@@ -86,7 +86,8 @@ def run(contract: Contract, strategy: str, tf: str, from_time: int, to_time: int
         h5_db = Hdf5Client()
         data = h5_db.get_data(contract, from_time, to_time)
         data = resample_timeframe(data, tf)
-        pnl, max_drawdown, win_rate, rr_long, rr_short, num_trades, mod_win_rate, max_losses, max_wins \
+        pnl, max_drawdown, win_rate, rr_long, rr_short, num_trades, mod_win_rate, max_losses, max_wins, num_longs, \
+            num_shorts \
             = strategies.guppy.backtest(df=data, initial_capital=initial_capital,
                                         trade_longs=params['trade_longs'],
                                         trade_shorts=params['trade_shorts'], sl_long=params['sl_long'],
@@ -322,6 +323,14 @@ def tester(contract: Contract, strategy: str, tf: str, time_delta, tests: int, i
     breakeven_trades_avg = []
     breakeven_trades_std = []
     breakeven_trades_cv = []
+    num_longs_list = []
+    num_longs_avg = []
+    num_longs_std = []
+    num_longs_cv = []
+    num_shorts_list = []
+    num_shorts_avg = []
+    num_shorts_std = []
+    num_shorts_cv = []
     profit_factor_list = []
     profit_factor_avg = []
     profit_factor_std = []
@@ -360,7 +369,7 @@ def tester(contract: Contract, strategy: str, tf: str, time_delta, tests: int, i
             data = h5_db.get_data(contract, from_time, to_time)
             data = resample_timeframe(data, tf)
             pnl, max_drawdown, win_rate, rr_long, rr_short, num_trades, mod_win_rate, max_losses, max_wins, \
-                trades_won, trades_lost, breakeven_trades, profit_factor \
+                trades_won, trades_lost, breakeven_trades, profit_factor, num_longs, num_shorts \
                 = strategies.guppy.backtest(df=data, initial_capital=initial_capital,
                                             trade_longs=params['trade_longs'],
                                             trade_shorts=params['trade_shorts'], sl_long=params['sl_long'],
@@ -373,7 +382,8 @@ def tester(contract: Contract, strategy: str, tf: str, time_delta, tests: int, i
                                             macd_slow=params['macd_slow'], macd_signal=params['macd_signal'],
                                             macd_long=params['macd_long'], rsi_long=params['rsi_long'],
                                             rsi_short=params['rsi_short'], rsi_length=params['rsi_length'],
-                                            rsi_overbought=params['rsi_overbought'], rsi_oversold=params['rsi_oversold'],
+                                            rsi_overbought=params['rsi_overbought'],
+                                            rsi_oversold=params['rsi_oversold'],
                                             ema200_long=params['ema200_long'],
                                             ema200_short=params['ema200_short'],
                                             guppy_fast_long=params['guppy_fast_long'],
@@ -455,6 +465,22 @@ def tester(contract: Contract, strategy: str, tf: str, time_delta, tests: int, i
                 num_trades_cv.append(np.std(num_trades_list)/np.mean(num_trades_list))
             else:
                 num_trades_cv.append(np.NaN)
+
+            num_longs_list.append(num_longs)
+            num_longs_avg.append(np.mean(num_longs_list))
+            num_longs_std.append(np.std(num_longs_list))
+            if np.mean(num_longs_list) != 0:
+                num_longs_cv.append(np.std(num_longs_list) / np.mean(num_longs_list))
+            else:
+                num_longs_cv.append(np.NaN)
+
+            num_shorts_list.append(num_shorts)
+            num_shorts_avg.append(np.mean(num_shorts_list))
+            num_shorts_std.append(np.std(num_shorts_list))
+            if np.mean(num_shorts_list) != 0:
+                num_shorts_cv.append(np.std(num_shorts_list) / np.mean(num_shorts_list))
+            else:
+                num_shorts_cv.append(np.NaN)
 
             max_losses_list.append(max_losses)
             max_losses_avg.append(np.mean(max_losses_list))
@@ -550,6 +576,16 @@ def tester(contract: Contract, strategy: str, tf: str, time_delta, tests: int, i
     df['num_trades_std'] = num_trades_std
     df['num_trades_cv'] = num_trades_cv
 
+    df['num_longs'] = num_longs_list
+    df['num_longs_avg'] = num_longs_avg
+    df['num_longs_std'] = num_longs_std
+    df['num_longs_cv'] = num_longs_cv
+
+    df['num_shorts'] = num_shorts_list
+    df['num_shorts_avg'] = num_shorts_avg
+    df['num_shorts_std'] = num_shorts_std
+    df['num_shorts_cv'] = num_shorts_cv
+
     df['trades_won'] = trades_won_list
     df['trades_won_avg'] = trades_won_avg
     df['trades_won_std'] = trades_won_std
@@ -639,6 +675,8 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
     rr_long_list = []
     rr_short_list = []
     num_trades_delta = []
+    num_longs_delta = []
+    num_shorts_delta = []
     mod_win_rate_delta = []
     max_losses_delta = []
     max_wins_delta = []
@@ -650,7 +688,8 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
                 params[p_code] = str(csv_data.at[iterations, p_code])
             else:
                 params[p_code] = p["type"](csv_data.at[iterations, p_code])
-        fpnl, fmax_drawdown, fwin_rate, rr_long, rr_short, fnum_trades, fmod_win_rate, fmax_losses, fmax_wins \
+        fpnl, fmax_drawdown, fwin_rate, rr_long, rr_short, fnum_trades, fmod_win_rate, fmax_losses, fmax_wins, \
+            fnum_longs, fnum_shorts \
             = f_tester(contract, strategy, tf, start_date, initial_capital, params, csv_data, "m", iterations)
         pnl_list.append(fpnl)
         pnl_delta.append(fpnl - float(csv_data.at[iterations, "pnl"]))
@@ -665,8 +704,12 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
         rr_short_list.append(rr_short)
         if fnum_trades != 0:
             num_trades_delta.append(fnum_trades - int(csv_data.at[iterations, "num_trades"]))
+            num_longs_delta.append(fnum_longs - int(csv_data.at[iterations, "num_longs"]))
+            num_shorts_delta.append(fnum_shorts - int(csv_data.at[iterations, "num_shorts"]))
         else:
             num_trades_delta.append(0)
+            num_longs_delta.append(0)
+            num_shorts_delta.append(0)
         mod_win_rate_delta.append(fmod_win_rate - float(csv_data.at[iterations, "mod_win_rate"]))
         max_losses_delta.append(fmax_losses - int(csv_data.at[iterations, "max_losses"]))
         max_wins_delta.append(fmax_wins - int(csv_data.at[iterations, "max_wins"]))
@@ -683,6 +726,8 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
     df["rr_long"] = rr_long_list
     df["rr_short"] = rr_short_list
     df["num_trades_delta"] = num_trades_delta
+    df["num_longs_delta"] = num_longs_delta
+    df["num_shorts_delta"] = num_shorts_delta
     df["max_losses_delta"] = max_losses_delta
     df["max_wins_delta"] = max_wins_delta
     df["original_pnl"] = csv_data["pnl"]
@@ -690,6 +735,8 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
     df["original_win_rate"] = csv_data["win_rate"]
     df["original_mod_win_rate"] = csv_data["mod_win_rate"]
     df["original_num_trades"] = csv_data["num_trades"]
+    df["original_num_longs"] = csv_data["num_longs"]
+    df["original_num_shorts"] = csv_data["num_shorts"]
     df["original_max_losses"] = csv_data["max_losses"]
     df["original_max_wins"] = csv_data["max_wins"]
     # df.index += 2
@@ -731,7 +778,7 @@ def f_tester(contract: Contract, strategy: str, tf: str, start_time: int, initia
         data = h5_db.get_data(contract, start_time, int(time.time()))
         data = resample_timeframe(data, tf)
         pnl, max_drawdown, win_rate, rr_long, rr_short, trade_counter, mod_win_rate, max_losses, max_wins, \
-            trades_won, trades_lost, breakeven_trades, profit_factor \
+            trades_won, trades_lost, breakeven_trades, profit_factor, num_longs, num_shorts \
             = strategies.guppy.backtest(df=data, initial_capital=initial_capital,
                                         trade_longs=params['trade_longs'],
                                         trade_shorts=params['trade_shorts'], sl_long=params['sl_long'],
@@ -781,4 +828,5 @@ def f_tester(contract: Contract, strategy: str, tf: str, start_time: int, initia
                                         adx_length_long=params['adx_length_long'],
                                         adx_length_short=params['adx_length_short'], )
 
-        return pnl, max_drawdown, win_rate, rr_long, rr_short, trade_counter, mod_win_rate, max_losses, max_wins
+        return pnl, max_drawdown, win_rate, rr_long, rr_short, trade_counter, mod_win_rate, max_losses, max_wins, \
+            num_longs, num_shorts

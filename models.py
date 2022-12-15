@@ -44,6 +44,8 @@ class BacktestResult:
         self.rr_long: float = 0.0
         self.rr_short: float = 0.0
         self.num_trades: int = 0
+        self.num_longs: int = 0
+        self.num_shorts: int = 0
         self.mod_win_rate: float = 0.0
         self.max_losses: int = 0
         self.max_wins: int = 0

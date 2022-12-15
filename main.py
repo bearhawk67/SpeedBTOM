@@ -240,6 +240,8 @@ if __name__ == "__main__":
                 ps["risk_reward_long"] = individual.rr_long
                 ps["risk_reward_short"] = individual.rr_short
                 ps["num_trades"] = individual.num_trades
+                ps["num_longs"] = individual.num_longs
+                ps["num_shorts"] = individual.num_shorts
                 ps["max_losses"] = individual.max_losses
                 ps["max_wins"] = individual.max_wins
                 df = pd.concat([df, ps], axis=0, ignore_index=True)
@@ -290,7 +292,7 @@ if __name__ == "__main__":
                 multitest_type = "mp"
                 pool_type = "last year"
                 time_delta = to_time - from_time
-                tests = 5
+                tests = 2
                 backtester.multitest(symbol, strategy, timeframe, multitest_type, time_delta, initial_capital, tests,
                                      pool_type, file_name)
 
@@ -351,6 +353,7 @@ if __name__ == "__main__":
                     smtp.sendmail("guppy.bot.messenger@gmail.com", email, message)
                     smtp.quit()
             else:
+                print("No results")
                 try:
                     smtp = smtplib.SMTP("smtp.gmail.com", 587)
                     smtp.starttls()

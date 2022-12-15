@@ -291,6 +291,8 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
     sl_moved = False
     sl_moved_time = np.NaN
     trade_counter = 0
+    num_longs = 0
+    num_shorts = 0
     quantity: float
     entry_fee: float
     exit_fee: float
@@ -438,6 +440,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
             entry_time = times[i]
             trade_side = 1
             trade_counter += 1
+            num_longs += 1
             df.at[times[i], "trades"] = "Enter Long"
             df.at[times[i], "trade_num"] = trade_counter
         elif (signals[i] == "Short") and (trade_side == 0):
@@ -445,6 +448,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
             entry_time = times[i]
             trade_side = -1
             trade_counter += 1
+            num_shorts += 1
             df.at[times[i], "trades"] = "Enter Short"
             df.at[times[i], "trade_num"] = trade_counter
 
@@ -516,7 +520,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
                 print("Balance liquidated")
                 break
             elif mode == "o":
-                return (initial_capital * -1), 100, 0, 0, 0, 0, 0, 0, 0
+                return (initial_capital * -1), 100, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
         quantity = trade_balance / entry_price
 
@@ -940,6 +944,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
             entry_time = times[i]
             trade_side = 1
             trade_counter += 1
+            num_longs += 1
             df.at[times[i], "trades"] += " & Enter Long"
             df.at[times[i], "trade_num"] = trade_counter
         elif (signals[i] == "Short") and (trade_side == 0):
@@ -947,6 +952,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
             entry_time = times[i]
             trade_side = -1
             trade_counter += 1
+            num_shorts += 1
             df.at[times[i], "trades"] += " & Enter Short"
             df.at[times[i], "trade_num"] = trade_counter
 
@@ -1040,6 +1046,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
             print(f"Final balance: ${balance}, Max PNL: ${max_pnl}, Max Drawdown: {max_drawdown}% \n"
                   f"Trades Won: {trades_won}, Trades Lost: {trades_lost}, Break Even "
                   f"Trades: {breakeven_trades}, Total Trades: {trade_counter} \n"
+                  f"Number of longs: {num_longs}, Number of shorts: {num_shorts} \n"
                   f"Win Rate: {win_rate}%, Modified Win Rate: {mod_win_rate}%, Profit Factor: {profit_factor}\n"
                   f"Max Consecutive Wins: {max_wins}, Max Consecutive Losses: {max_losses}\n"
                   f"Risk:Reward (Longs): {rr_long}, Risk:Reward (Shorts): {rr_short}")
@@ -1048,7 +1055,9 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
         else:
             print(f"Final balance: {balance}, Trades Won: {trades_won}, Trades Lost: {trades_lost}, \n Trades closed "
                   f"after hitting TP1: {tp1_counter}, Trades closed after hitting TP2: {tp2_counter}, Total trades: "
-                  f"{trade_counter}, \n Max PNL: ${max_pnl}, Max Drawdown: {max_drawdown}%, "
+                  f"{trade_counter}, \n "
+                  f"Number of longs: {num_longs}, Number of shorts: {num_shorts} \n"
+                  f"Max PNL: ${max_pnl}, Max Drawdown: {max_drawdown}%, "
                   f"Profit Factor: {profit_factor}\n Total Trades: {trade_counter}, "
                   f"Max Consecutive Wins: {max_wins}, Max Consecutive Losses: {max_losses}\n"
                   f"Risk:Reward (Longs): {rr_long}, Risk:Reward (Shorts): {rr_short}")
@@ -1108,8 +1117,12 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
             #          figscale=2, tight_layout=True, vlines=dict(vlines=trade_times,
             #          colors=color_list, linewidths=1), tz_localize=True)
             # plt.show()
+        return pnl, max_drawdown, win_rate, rr_long, rr_short, trade_counter, mod_win_rate, max_losses, max_wins, \
+            num_longs, num_shorts
     elif mode == "m":
         return pnl, max_drawdown, win_rate, rr_long, rr_short, trade_counter, mod_win_rate, max_losses, max_wins, \
-               trades_won, trades_lost, breakeven_trades, profit_factor
+               trades_won, trades_lost, breakeven_trades, profit_factor, num_longs, num_shorts
 
-    return pnl, max_drawdown, win_rate, rr_long, rr_short, trade_counter, mod_win_rate, max_losses, max_wins
+    else:
+        return pnl, max_drawdown, win_rate, rr_long, rr_short, trade_counter, mod_win_rate, max_losses, max_wins, \
+            num_longs, num_shorts

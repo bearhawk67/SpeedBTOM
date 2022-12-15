@@ -520,21 +520,21 @@ class Nsga2:
                 #                                        (indiv_2.num_trades > indiv_1.num_trades))):
                 #     indiv_1.dominated_by += 1
 
-                # v 4.1.11a
-                if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
-                                                    (indiv_1.num_trades >= indiv_2.num_trades) and
-                                                    (indiv_1.win_rate >= indiv_2.win_rate)) and \
-                                                   ((indiv_1.max_dd < indiv_2.max_dd) or
-                                                    (indiv_1.num_trades > indiv_2.num_trades) or
-                                                    (indiv_1.win_rate > indiv_2.win_rate)):
-                    indiv_1.dominates.append(id_2)
-                elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
-                                                      (indiv_2.num_trades >= indiv_1.num_trades) and
-                                                      (indiv_2.win_rate >= indiv_1.win_rate)) and \
-                                                     ((indiv_2.max_dd < indiv_1.max_dd) or
-                                                      (indiv_2.num_trades > indiv_1.num_trades) or
-                                                      (indiv_2.win_rate > indiv_1.win_rate)):
-                    indiv_1.dominated_by += 1
+                # # v 4.1.11a
+                # if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
+                #                                     (indiv_1.num_trades >= indiv_2.num_trades) and
+                #                                     (indiv_1.win_rate >= indiv_2.win_rate)) and \
+                #                                    ((indiv_1.max_dd < indiv_2.max_dd) or
+                #                                     (indiv_1.num_trades > indiv_2.num_trades) or
+                #                                     (indiv_1.win_rate > indiv_2.win_rate)):
+                #     indiv_1.dominates.append(id_2)
+                # elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
+                #                                       (indiv_2.num_trades >= indiv_1.num_trades) and
+                #                                       (indiv_2.win_rate >= indiv_1.win_rate)) and \
+                #                                      ((indiv_2.max_dd < indiv_1.max_dd) or
+                #                                       (indiv_2.num_trades > indiv_1.num_trades) or
+                #                                       (indiv_2.win_rate > indiv_1.win_rate)):
+                #     indiv_1.dominated_by += 1
 
                 # # v.4.1.12
                 # if indiv_1.pnl > indiv_2.pnl:
@@ -542,17 +542,17 @@ class Nsga2:
                 # elif indiv_2.pnl > indiv_1.pnl:
                 #     indiv_1.dominated_by += 1
 
-                # # v. 4.1.13
-                # if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
-                #                                     (indiv_1.num_trades >= indiv_2.num_trades)) and \
-                #                                     ((indiv_1.max_dd < indiv_2.max_dd) or
-                #                                     (indiv_1.num_trades > indiv_2.num_trades)):
-                #     indiv_1.dominates.append(id_2)
-                # elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
-                #                                       (indiv_2.num_trades >= indiv_1.num_trades)) and \
-                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
-                #                                       (indiv_2.num_trades > indiv_1.num_trades)):
-                #     indiv_1.dominated_by += 1
+                # v. 4.1.13
+                if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
+                                                    (indiv_1.num_trades >= indiv_2.num_trades)) and \
+                                                    ((indiv_1.max_dd < indiv_2.max_dd) or
+                                                    (indiv_1.num_trades > indiv_2.num_trades)):
+                    indiv_1.dominates.append(id_2)
+                elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
+                                                      (indiv_2.num_trades >= indiv_1.num_trades)) and \
+                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
+                                                      (indiv_2.num_trades > indiv_1.num_trades)):
+                    indiv_1.dominated_by += 1
 
             if indiv_1.dominated_by == 0:
                 if len(fronts) == 0:
@@ -635,7 +635,7 @@ class Nsga2:
         elif self.strategy == "guppy":
             for bt in population:
                 bt.pnl, bt.max_dd, bt.win_rate, bt.rr_long, bt.rr_short, bt.num_trades, bt.mod_win_rate, \
-                    bt.max_losses, bt.max_wins \
+                    bt.max_losses, bt.max_wins, bt.num_longs, bt.num_shorts \
                     = strategies.guppy.backtest(df=self.data, initial_capital=self.initial_capital,
                                                 trade_longs=bt.parameters['trade_longs'],
                                                 trade_shorts=bt.parameters['trade_shorts'],
@@ -730,7 +730,8 @@ class Nsga2:
         for i in range(len(rss_pop)):
 
             rss_pop[i].pnl, rss_pop[i].max_dd, rss_pop[i].win_rate, rss_pop[i].rr_long, rss_pop[i].rr_short, \
-                rss_pop[i].num_trades, rss_pop[i].mod_win_rate, rss_pop[i].max_losses, rss_pop[i].max_wins \
+                rss_pop[i].num_trades, rss_pop[i].mod_win_rate, rss_pop[i].max_losses, rss_pop[i].max_wins, \
+                rss_pop[i].num_longs, rss_pop[i].num_shorts \
                 = strategies.guppy.backtest(df=data, initial_capital=self.initial_capital,
                                             trade_longs=rss_pop[i].parameters['trade_longs'],
                                             trade_shorts=rss_pop[i].parameters['trade_shorts'],
