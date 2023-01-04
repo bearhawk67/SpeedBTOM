@@ -18,6 +18,9 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
              mfi_long_threshold: float, mfi_short_threshold: float,
              ema200_long: str, ema200_short: str,
              guppy_fast_long: str, guppy_fast_short: str, ribbon_check_long: int, ribbon_check_short: int,
+             sl_type_long: int, sl_type_short: int, min_rr_long: float, min_rr_short: float, tsl_size_long: float,
+             tsl_size_short: float, band6_cushion_long: float, band6_cushion_short: float, gsl_moveto_long: int,
+             gsl_moveto_short: int,
              move_sl_type_long: int, move_sl_type_short: int, move_sl_long: float, move_sl_short: float, risk: int,
              leverage: float, tp_long: int, tp_short: int, ltp1: float, ltp1_qty: float, ltp2: float, ltp2_qty: float,
              ltp3: float, stp1: float, stp1_qty: float, stp2: float, stp2_qty: float, stp3: float, mode: str,
@@ -33,6 +36,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
              ):
 
     iteration = kwargs.get("iteration", None)
+
     # Guppy Ribbons
     df["fast_1"] = df.ta.ema(length=3)
     df["fast_2"] = df.ta.ema(length=5)
@@ -289,6 +293,9 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
     tp1_hit = False
     tp2_hit = False
     sl_moved = False
+    hybrid_sl_activated = False
+    gsl_breakeven = False
+    trailing_sl: float
     sl_moved_time = np.NaN
     trade_counter = 0
     num_longs = 0
@@ -300,11 +307,12 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
     tp2_fee: float
     market_fee = 0.0006
     limit_fee = 0.0001
-    df["trades"] = np.NaN
+    df["trades"]: str = ""
     df["trade_num"] = np.NaN
-    df["sl_tracker"] = np.NaN
+    df["sl_tracker"]: str = ""
     df["balance_tracker"] = np.NaN
     df["fees"] = np.NaN
+    df["%_moved"] = np.NaN
     balance_pct: float
     lev: float
     trade_balance: float
@@ -420,16 +428,18 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
     closes = np.array(df['close'])
     times = np.array(df.index)
     signals = np.array(df['trade_signal'])
+    guppy_6 = np.array(df['slow_6'])
 
     for i in range(len(highs)):
         # Move SL after %
-        if (move_sl_type_long == 1) and (closes[i] >= entry_price * (1 + move_sl_long / 100)) and not sl_moved and \
-                (trade_side == 1) and (lows[i] > entry_price * (1 - sl_long / 100)):
+        if (sl_type_long == 1) and (move_sl_type_long == 1) and (closes[i] >= entry_price * (1 + move_sl_long / 100)) \
+                and not sl_moved and (trade_side == 1) and (lows[i] > entry_price * (1 - sl_long / 100)):
             df.at[times[i], "sl_tracker"] = "SL Moved to break even"
             sl_moved = True
             sl_moved_time = times[i]
-        if (move_sl_type_short == 1) and (closes[i] <= entry_price * (1 - move_sl_short / 100)) and not sl_moved \
-                and (trade_side == -1) and (highs[i] < entry_price * (1 + sl_short / 100)):
+        if (sl_type_short == 1) and (move_sl_type_short == 1) and \
+            (closes[i] <= entry_price * (1 - move_sl_short / 100)) and not sl_moved and (trade_side == -1) \
+                and (highs[i] < entry_price * (1 + sl_short / 100)):
             df.at[times[i], "sl_tracker"] = "SL Moved to break even"
             sl_moved = True
             sl_moved_time = times[i]
@@ -526,8 +536,650 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
 
         entry_fee = trade_balance * market_fee
 
-        # 1 TP
-        if tp_long == 1 and trade_side == 1:
+        # Hybrid style SL Longs
+        if (sl_type_long == 2) and (trade_side == 1) and (times[i] > entry_time):
+            if not hybrid_sl_activated and (trade_side == 1):
+                l_loss_fee = trade_balance * (1 - sl_long / 100) * market_fee
+                long_risk = trade_balance * (sl_long / 100) + entry_fee + l_loss_fee
+                # Adjust min_rr to make up for unknown exit price
+                long_reward = (min_rr_long + 0.046) * long_risk
+                l_sl_switch_price = (1 + ((long_reward + entry_fee) / trade_balance)) * entry_price
+                # Check to see if stopped out before sl changed to trailing
+                if lows[i] <= entry_price * (1 - sl_long / 100):
+                    exit_fee = (quantity * entry_price * (1 - sl_long / 100)) * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance -= ((((sl_long / 100) * trade_balance) + entry_fee) + exit_fee)
+                    balance_history.append(balance)
+                    trades_lost += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Lose Long,"
+                    df.at[times[i], "%_moved"] = -1 * sl_long
+                    if win_loss_tracker[-1] != "L":
+                        win_counter = 0
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    elif win_loss_tracker[-1] == "L":
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    win_loss_tracker.append("L")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check to see if sl can be changed to trailing
+                elif closes[i] >= (l_sl_switch_price + (tsl_size_long / 100 * l_sl_switch_price)):
+                    hybrid_sl_activated = True
+                    tsl_size = tsl_size_long / 100 * l_sl_switch_price
+                    trailing_sl = highs[i] - tsl_size
+                    df.at[times[i], "sl_tracker"] += "SL set to min RR"
+                    # Check if sl hit after switching to trailing
+                    if lows[i] <= trailing_sl:
+                        exit_fee = quantity * trailing_sl * market_fee
+                        df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                        balance += (((((trailing_sl / entry_price) - 1) * trade_balance) - entry_fee) - exit_fee)
+                        balance_history.append(balance)
+                        df.at[times[i], "%_moved"] = ((trailing_sl / entry_price) - 1) * 100
+                        trades_won += 1
+                        trade_side = 0
+                        entry_price = np.NaN
+                        entry_time = np.NaN
+                        hybrid_sl_activated = False
+                        df.at[times[i], "balance_tracker"] = balance
+                        df.at[times[i], "trades"] += "Win Long,"
+                        if win_loss_tracker[-1] != "W":
+                            win_counter += 1
+                            lose_counter = 0
+                            max_wins = max(max_wins, win_counter)
+                        elif win_loss_tracker[-1] == "W":
+                            win_counter += 1
+                            max_wins = max(max_wins, win_counter)
+                        win_loss_tracker.append("W")
+                        trade_times.append(pd.to_datetime(df.index[i]))
+            elif hybrid_sl_activated and (trade_side == 1):
+                # Check if stopped out first
+                if lows[i] <= trailing_sl:
+                    exit_fee = quantity * trailing_sl * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance += (((((trailing_sl / entry_price) - 1) * trade_balance) - entry_fee) - exit_fee)
+                    balance_history.append(balance)
+                    df.at[times[i], "%_moved"] = ((trailing_sl / entry_price) - 1) * 100
+                    trades_won += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    hybrid_sl_activated = False
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Win Long,"
+                    if win_loss_tracker[-1] != "W":
+                        win_counter += 1
+                        lose_counter = 0
+                        max_wins = max(max_wins, win_counter)
+                    elif win_loss_tracker[-1] == "W":
+                        win_counter += 1
+                        max_wins = max(max_wins, win_counter)
+                    win_loss_tracker.append("W")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check if sl moved
+                elif (highs[i] > (trailing_sl + tsl_size)) and (trade_side == 1):
+                    trailing_sl = highs[i] - tsl_size
+                    df.at[times[i], "sl_tracker"] += "SL moved"
+                    # Check if stopped out again
+                    if (lows[i] <= trailing_sl) and (trade_side == 1):
+                        exit_fee = quantity * trailing_sl * market_fee
+                        df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                        balance += (((((trailing_sl / entry_price) - 1) * trade_balance) - entry_fee) - exit_fee)
+                        balance_history.append(balance)
+                        df.at[times[i], "%_moved"] = ((trailing_sl / entry_price) - 1) * 100
+                        trades_won += 1
+                        trade_side = 0
+                        entry_price = np.NaN
+                        entry_time = np.NaN
+                        hybrid_sl_activated = False
+                        df.at[times[i], "balance_tracker"] = balance
+                        df.at[times[i], "trades"] += "Win Long,"
+                        if win_loss_tracker[-1] != "W":
+                            win_counter += 1
+                            lose_counter = 0
+                            max_wins = max(max_wins, win_counter)
+                        elif win_loss_tracker[-1] == "W":
+                            win_counter += 1
+                            max_wins = max(max_wins, win_counter)
+                        win_loss_tracker.append("W")
+                        trade_times.append(pd.to_datetime(df.index[i]))
+
+        # Hybrid Style SL Shorts
+        elif (sl_type_short == 2) and (trade_side == -1) and (times[i] > entry_time):
+            if not hybrid_sl_activated and (trade_side == -1):
+                s_loss_fee = trade_balance * (1 + sl_short / 100) * market_fee
+                short_risk = trade_balance * (sl_short / 100) + entry_fee + s_loss_fee
+                # Adjust min_rr to make up for unknown exit price
+                short_reward = (min_rr_short + 0.046) * short_risk
+                s_sl_switch_price = (1 - ((short_reward + entry_fee) / trade_balance)) * entry_price
+                # Check to see if stopped out before sl changed to trailing
+                if highs[i] >= entry_price * (1 + sl_short / 100):
+                    exit_fee = (quantity * (entry_price * (1 + sl_short / 100))) * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance -= ((((sl_short / 100) * trade_balance) + entry_fee) + exit_fee)
+                    balance_history.append(balance)
+                    trades_lost += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    sl_moved = False
+                    sl_moved_time = np.NaN
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Lose Short,"
+                    df.at[times[i], "%_moved"] = -1 * sl_short
+                    if win_loss_tracker[-1] != "L":
+                        win_counter = 0
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    elif win_loss_tracker[-1] == "L":
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    win_loss_tracker.append("L")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check to see if sl can be changed to trailing
+                elif (closes[i] <= (s_sl_switch_price - tsl_size_short)) and (trade_side == -1):
+                    hybrid_sl_activated = True
+                    tsl_size = tsl_size_short / 100 * s_sl_switch_price
+                    trailing_sl = highs[i] - tsl_size
+                    trailing_sl = lows[i] + tsl_size
+                    df.at[times[i], "sl_tracker"] += "SL set to min RR"
+                    # Check if sl hit after switching to trailing
+                    if (highs[i] >= trailing_sl) and (trade_side == -1):
+                        exit_fee = quantity * trailing_sl * market_fee
+                        df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                        balance += ((((1 - (trailing_sl / entry_price)) * trade_balance) - entry_fee) - exit_fee)
+                        balance_history.append(balance)
+                        df.at[times[i], "%_moved"] = (1 - (trailing_sl / entry_price)) * 100
+                        trades_won += 1
+                        trade_side = 0
+                        entry_price = np.NaN
+                        entry_time = np.NaN
+                        hybrid_sl_activated = False
+                        df.at[times[i], "balance_tracker"] = balance
+                        df.at[times[i], "trades"] += "Win Short,"
+                        if win_loss_tracker[-1] != "W":
+                            win_counter += 1
+                            lose_counter = 0
+                            max_wins = max(max_wins, win_counter)
+                        elif win_loss_tracker[-1] == "W":
+                            win_counter += 1
+                            max_wins = max(max_wins, win_counter)
+                        win_loss_tracker.append("W")
+                        trade_times.append(pd.to_datetime(df.index[i]))
+            elif hybrid_sl_activated and (trade_side == -1):
+                # Check if stopped out first
+                if highs[i] >= trailing_sl:
+                    exit_fee = quantity * trailing_sl * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance += ((((1 - (trailing_sl / entry_price)) * trade_balance) - entry_fee) - exit_fee)
+                    balance_history.append(balance)
+                    df.at[times[i], "%_moved"] = (1 - (trailing_sl / entry_price)) * 100
+                    trades_won += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    hybrid_sl_activated = False
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Win Short,"
+                    if win_loss_tracker[-1] != "W":
+                        win_counter += 1
+                        lose_counter = 0
+                        max_wins = max(max_wins, win_counter)
+                    elif win_loss_tracker[-1] == "W":
+                        win_counter += 1
+                        max_wins = max(max_wins, win_counter)
+                    win_loss_tracker.append("W")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check if sl moved
+                elif (lows[i] < (trailing_sl - tsl_size)) and (trade_side == -1):
+                    trailing_sl = lows[i] + tsl_size
+                    df.at[times[i], "sl_tracker"] += "SL moved"
+                    # Check if stopped out again
+                    if (highs[i] >= trailing_sl) and (trade_side == -1):
+                        exit_fee = quantity * trailing_sl * market_fee
+                        df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                        balance += ((((1 - (trailing_sl / entry_price)) * trade_balance) - entry_fee) - exit_fee)
+                        balance_history.append(balance)
+                        df.at[times[i], "%_moved"] = (1 - (trailing_sl / entry_price)) * 100
+                        trades_won += 1
+                        trade_side = 0
+                        entry_price = np.NaN
+                        entry_time = np.NaN
+                        hybrid_sl_activated = False
+                        df.at[times[i], "balance_tracker"] = balance
+                        df.at[times[i], "trades"] += "Win Short,"
+                        if win_loss_tracker[-1] != "W":
+                            win_counter += 1
+                            lose_counter = 0
+                            max_wins = max(max_wins, win_counter)
+                        elif win_loss_tracker[-1] == "W":
+                            win_counter += 1
+                            max_wins = max(max_wins, win_counter)
+                        win_loss_tracker.append("W")
+                        trade_times.append(pd.to_datetime(df.index[i]))
+########################################################################################################################
+        # Guppy Trailing style SL Longs
+        if (sl_type_long == 3) and (trade_side == 1) and (times[i] > entry_time):
+            if not hybrid_sl_activated and (trade_side == 1):
+                l_loss_fee = trade_balance * (1 - sl_long / 100) * market_fee
+                long_risk = trade_balance * (sl_long / 100) + entry_fee + l_loss_fee
+                # Adjust min_rr to make up for unknown exit price
+                long_reward = (min_rr_long + 0.046) * long_risk
+                l_sl_switch_price = (1 + ((long_reward + entry_fee) / trade_balance)) * entry_price
+                # Check to see if stopped out before sl changed to trailing
+                if lows[i] <= entry_price * (1 - sl_long / 100):
+                    exit_fee = (quantity * entry_price * (1 - sl_long / 100)) * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance -= ((((sl_long / 100) * trade_balance) + entry_fee) + exit_fee)
+                    balance_history.append(balance)
+                    trades_lost += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Lose Long,"
+                    df.at[times[i], "%_moved"] = -1 * sl_long
+                    if win_loss_tracker[-1] != "L":
+                        win_counter = 0
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    elif win_loss_tracker[-1] == "L":
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    win_loss_tracker.append("L")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check to see if sl can be changed to trailing
+                elif guppy_6[i] >= (l_sl_switch_price + (tsl_size_long / 100 * l_sl_switch_price)):
+                    hybrid_sl_activated = True
+                    tsl_size = tsl_size_long / 100 * l_sl_switch_price
+                    trailing_sl = guppy_6[i]
+                    df.at[times[i], "sl_tracker"] += "SL set to min RR"
+                    # Check if sl hit after switching to trailing
+                    if lows[i] <= trailing_sl:
+                        exit_fee = quantity * trailing_sl * market_fee
+                        df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                        balance += (((((trailing_sl / entry_price) - 1) * trade_balance) - entry_fee) - exit_fee)
+                        balance_history.append(balance)
+                        df.at[times[i], "%_moved"] = ((trailing_sl / entry_price) - 1) * 100
+                        trades_won += 1
+                        trade_side = 0
+                        entry_price = np.NaN
+                        entry_time = np.NaN
+                        hybrid_sl_activated = False
+                        df.at[times[i], "balance_tracker"] = balance
+                        df.at[times[i], "trades"] += "Win Long,"
+                        if win_loss_tracker[-1] != "W":
+                            win_counter += 1
+                            lose_counter = 0
+                            max_wins = max(max_wins, win_counter)
+                        elif win_loss_tracker[-1] == "W":
+                            win_counter += 1
+                            max_wins = max(max_wins, win_counter)
+                        win_loss_tracker.append("W")
+                        trade_times.append(pd.to_datetime(df.index[i]))
+            elif hybrid_sl_activated and (trade_side == 1):
+                # Check if stopped out first
+                if lows[i] <= trailing_sl:
+                    exit_fee = quantity * trailing_sl * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance += (((((trailing_sl / entry_price) - 1) * trade_balance) - entry_fee) - exit_fee)
+                    balance_history.append(balance)
+                    df.at[times[i], "%_moved"] = ((trailing_sl / entry_price) - 1) * 100
+                    trades_won += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    hybrid_sl_activated = False
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Win Long,"
+                    if win_loss_tracker[-1] != "W":
+                        win_counter += 1
+                        lose_counter = 0
+                        max_wins = max(max_wins, win_counter)
+                    elif win_loss_tracker[-1] == "W":
+                        win_counter += 1
+                        max_wins = max(max_wins, win_counter)
+                    win_loss_tracker.append("W")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check if sl moved
+                elif (guppy_6[i] > trailing_sl) and (trade_side == 1):
+                    trailing_sl = guppy_6[i]
+                    df.at[times[i], "sl_tracker"] += "SL moved"
+                    # Check if stopped out again
+                    if (lows[i] <= trailing_sl) and (trade_side == 1):
+                        exit_fee = quantity * trailing_sl * market_fee
+                        df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                        balance += (((((trailing_sl / entry_price) - 1) * trade_balance) - entry_fee) - exit_fee)
+                        balance_history.append(balance)
+                        df.at[times[i], "%_moved"] = ((trailing_sl / entry_price) - 1) * 100
+                        trades_won += 1
+                        trade_side = 0
+                        entry_price = np.NaN
+                        entry_time = np.NaN
+                        hybrid_sl_activated = False
+                        df.at[times[i], "balance_tracker"] = balance
+                        df.at[times[i], "trades"] += "Win Long,"
+                        if win_loss_tracker[-1] != "W":
+                            win_counter += 1
+                            lose_counter = 0
+                            max_wins = max(max_wins, win_counter)
+                        elif win_loss_tracker[-1] == "W":
+                            win_counter += 1
+                            max_wins = max(max_wins, win_counter)
+                        win_loss_tracker.append("W")
+                        trade_times.append(pd.to_datetime(df.index[i]))
+
+        # Guppy Trailing Style SL Shorts
+        elif (sl_type_short == 3) and (trade_side == -1) and (times[i] > entry_time):
+            if not hybrid_sl_activated and (trade_side == -1):
+                s_loss_fee = trade_balance * (1 + sl_short / 100) * market_fee
+                short_risk = trade_balance * (sl_short / 100) + entry_fee + s_loss_fee
+                # Adjust min_rr to make up for unknown exit price
+                short_reward = (min_rr_short + 0.046) * short_risk
+                s_sl_switch_price = (1 - ((short_reward + entry_fee) / trade_balance)) * entry_price
+                # Check to see if stopped out before sl changed to trailing
+                if highs[i] >= entry_price * (1 + sl_short / 100):
+                    exit_fee = (quantity * (entry_price * (1 + sl_short / 100))) * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance -= ((((sl_short / 100) * trade_balance) + entry_fee) + exit_fee)
+                    balance_history.append(balance)
+                    trades_lost += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    sl_moved = False
+                    sl_moved_time = np.NaN
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Lose Short,"
+                    df.at[times[i], "%_moved"] = -1 * sl_short
+                    if win_loss_tracker[-1] != "L":
+                        win_counter = 0
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    elif win_loss_tracker[-1] == "L":
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    win_loss_tracker.append("L")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check to see if sl can be changed to trailing
+                elif (guppy_6[i] <= (s_sl_switch_price - (tsl_size_short / 100 * s_sl_switch_price))) \
+                        and (trade_side == -1):
+                    hybrid_sl_activated = True
+                    tsl_size = tsl_size_short / 100 * s_sl_switch_price
+                    trailing_sl = guppy_6[i]
+                    df.at[times[i], "sl_tracker"] += "SL set to min RR"
+                    # Check if sl hit after switching to trailing
+                    if (highs[i] >= trailing_sl) and (trade_side == -1):
+                        exit_fee = quantity * trailing_sl * market_fee
+                        df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                        balance += ((((1 - (trailing_sl / entry_price)) * trade_balance) - entry_fee) - exit_fee)
+                        balance_history.append(balance)
+                        df.at[times[i], "%_moved"] = (1 - (trailing_sl / entry_price)) * 100
+                        trades_won += 1
+                        trade_side = 0
+                        entry_price = np.NaN
+                        entry_time = np.NaN
+                        hybrid_sl_activated = False
+                        df.at[times[i], "balance_tracker"] = balance
+                        df.at[times[i], "trades"] += "Win Short,"
+                        if win_loss_tracker[-1] != "W":
+                            win_counter += 1
+                            lose_counter = 0
+                            max_wins = max(max_wins, win_counter)
+                        elif win_loss_tracker[-1] == "W":
+                            win_counter += 1
+                            max_wins = max(max_wins, win_counter)
+                        win_loss_tracker.append("W")
+                        trade_times.append(pd.to_datetime(df.index[i]))
+            elif hybrid_sl_activated and (trade_side == -1):
+                # Check if stopped out first
+                if highs[i] >= trailing_sl:
+                    exit_fee = quantity * trailing_sl * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance += ((((1 - (trailing_sl / entry_price)) * trade_balance) - entry_fee) - exit_fee)
+                    balance_history.append(balance)
+                    df.at[times[i], "%_moved"] = (1 - (trailing_sl / entry_price)) * 100
+                    trades_won += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    hybrid_sl_activated = False
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Win Short,"
+                    if win_loss_tracker[-1] != "W":
+                        win_counter += 1
+                        lose_counter = 0
+                        max_wins = max(max_wins, win_counter)
+                    elif win_loss_tracker[-1] == "W":
+                        win_counter += 1
+                        max_wins = max(max_wins, win_counter)
+                    win_loss_tracker.append("W")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check if sl moved
+                elif (guppy_6[i] < trailing_sl) and (trade_side == -1):
+                    trailing_sl = guppy_6[i]
+                    df.at[times[i], "sl_tracker"] += "SL moved"
+                    # Check if stopped out again
+                    if (highs[i] >= trailing_sl) and (trade_side == -1):
+                        exit_fee = quantity * trailing_sl * market_fee
+                        df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                        balance += ((((1 - (trailing_sl / entry_price)) * trade_balance) - entry_fee) - exit_fee)
+                        balance_history.append(balance)
+                        df.at[times[i], "%_moved"] = (1 - (trailing_sl / entry_price)) * 100
+                        trades_won += 1
+                        trade_side = 0
+                        entry_price = np.NaN
+                        entry_time = np.NaN
+                        hybrid_sl_activated = False
+                        df.at[times[i], "balance_tracker"] = balance
+                        df.at[times[i], "trades"] += "Win Short,"
+                        if win_loss_tracker[-1] != "W":
+                            win_counter += 1
+                            lose_counter = 0
+                            max_wins = max(max_wins, win_counter)
+                        elif win_loss_tracker[-1] == "W":
+                            win_counter += 1
+                            max_wins = max(max_wins, win_counter)
+                        win_loss_tracker.append("W")
+                        trade_times.append(pd.to_datetime(df.index[i]))
+########################################################################################################################
+        # Guppy Style Semi-trailing SL Longs
+        if (sl_type_long == 4) and (trade_side == 1) and (times[i] > entry_time):
+            if not hybrid_sl_activated and (trade_side == 1):
+                l_loss_fee = trade_balance * (1 - sl_long / 100) * market_fee
+                long_risk = trade_balance * (sl_long / 100) + entry_fee + l_loss_fee
+                # Adjust min_rr to make up for unknown exit price
+                long_reward = (min_rr_long + 0.046) * long_risk
+                l_sl_switch_price = (1 + ((long_reward + entry_fee) / trade_balance)) * entry_price
+                # Check to see if stopped out before sl changed to trailing
+                if lows[i] <= entry_price * (1 - sl_long / 100):
+                    exit_fee = (quantity * entry_price * (1 - sl_long / 100)) * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance -= ((((sl_long / 100) * trade_balance) + entry_fee) + exit_fee)
+                    balance_history.append(balance)
+                    trades_lost += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Lose Long,"
+                    df.at[times[i], "%_moved"] = -1 * sl_long
+                    if win_loss_tracker[-1] != "L":
+                        win_counter = 0
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    elif win_loss_tracker[-1] == "L":
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    win_loss_tracker.append("L")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check to see if sl can be changed to trailing
+                elif guppy_6[i] >= (l_sl_switch_price + (tsl_size_long / 100 * l_sl_switch_price)):
+                    hybrid_sl_activated = True
+                    if gsl_moveto_long == 1:
+                        trailing_sl = entry_price * 1.002
+                        df.at[times[i], 'sl_tracker'] += "SL set to break even"
+                        gsl_breakeven = True
+                    elif gsl_moveto_long == 2:
+                        df.at[times[i], 'sl_tracker'] += "SL set to min RR"
+                        trailing_sl = l_sl_switch_price
+            elif hybrid_sl_activated and (trade_side == 1):
+                # Check for break even if using
+                if (lows[i] <= entry_price * 1.002) and (gsl_moveto_long == 1) and gsl_breakeven:
+                    exit_fee = quantity * trailing_sl * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance += (((((trailing_sl / entry_price) - 1) * trade_balance) - entry_fee) - exit_fee)
+                    balance_history.append(balance)
+                    breakeven_trades += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    hybrid_sl_activated = False
+                    gsl_breakeven = False
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Long break even,"
+                    df.at[times[i], "%_moved"] = 0.002
+                    if win_loss_tracker[-1] != "B":
+                        win_counter = 0
+                        lose_counter = 0
+                    win_loss_tracker.append("B")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check if stopped out first
+                elif (lows[i] <= trailing_sl) and (trade_side == 1):
+                    exit_fee = quantity * trailing_sl * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance += (((((trailing_sl / entry_price) - 1) * trade_balance) - entry_fee) - exit_fee)
+                    balance_history.append(balance)
+                    df.at[times[i], "%_moved"] = ((trailing_sl / entry_price) - 1) * 100
+                    trades_won += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    hybrid_sl_activated = False
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Win Long,"
+                    if win_loss_tracker[-1] != "W":
+                        win_counter += 1
+                        lose_counter = 0
+                        max_wins = max(max_wins, win_counter)
+                    elif win_loss_tracker[-1] == "W":
+                        win_counter += 1
+                        max_wins = max(max_wins, win_counter)
+                    win_loss_tracker.append("W")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check if sl moved
+                elif (lows[i] <= guppy_6[i]) and (trade_side == 1):
+                    gsl_breakeven = False
+                    if closes[i] <= guppy_6[i]:
+                        trailing_sl = closes[i] * (1 - (band6_cushion_long / 100))
+                        df.at[times[i], 'sl_tracker'] += "SL moved"
+                    else:
+                        trailing_sl = guppy_6[i] * (1 - (band6_cushion_long / 100))
+                        df.at[times[i], 'sl_tracker'] += "SL moved"
+
+        # Guppy Style Semi-Trailing SL Shorts
+        elif (sl_type_short == 4) and (trade_side == -1) and (times[i] > entry_time):
+            if not hybrid_sl_activated and (trade_side == -1):
+                s_loss_fee = trade_balance * (1 + sl_short / 100) * market_fee
+                short_risk = trade_balance * (sl_short / 100) + entry_fee + s_loss_fee
+                # Adjust min_rr to make up for unknown exit price
+                short_reward = (min_rr_short + 0.046) * short_risk
+                s_sl_switch_price = (1 - ((short_reward + entry_fee) / trade_balance)) * entry_price
+                # Check to see if stopped out before sl changed to trailing
+                if highs[i] >= entry_price * (1 + sl_short / 100):
+                    exit_fee = (quantity * (entry_price * (1 + sl_short / 100))) * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance -= ((((sl_short / 100) * trade_balance) + entry_fee) + exit_fee)
+                    balance_history.append(balance)
+                    trades_lost += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    sl_moved = False
+                    sl_moved_time = np.NaN
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Lose Short,"
+                    df.at[times[i], "%_moved"] = -1 * sl_short
+                    if win_loss_tracker[-1] != "L":
+                        win_counter = 0
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    elif win_loss_tracker[-1] == "L":
+                        lose_counter += 1
+                        max_losses = max(max_losses, lose_counter)
+                    win_loss_tracker.append("L")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check to see if sl can be changed to trailing
+                elif (guppy_6[i] <= (s_sl_switch_price - (tsl_size_short / 100 * s_sl_switch_price))) \
+                        and (trade_side == -1):
+                    hybrid_sl_activated = True
+                    if gsl_moveto_short == 1:
+                        gsl_breakeven = True
+                        df.at[times[i], 'sl_tracker'] += "SL set to break even"
+                        trailing_sl = entry_price * 0.998
+                    elif gsl_moveto_short == 2:
+                        df.at[times[i], 'sl_tracker'] += "SL set to min RR"
+                        trailing_sl = s_sl_switch_price
+            elif hybrid_sl_activated and (trade_side == -1):
+                # Check for break even if using
+                if (highs[i] >= entry_price * 0.998) and (gsl_moveto_long == 1) and gsl_breakeven:
+                    exit_fee = quantity * trailing_sl * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance += ((((1 - (trailing_sl / entry_price)) * trade_balance) - entry_fee) - exit_fee)
+                    balance_history.append(balance)
+                    trades_won += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    hybrid_sl_activated = False
+                    gsl_breakeven = False
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Short break even,"
+                    df.at[times[i], "%_moved"] = 0.002
+                    if win_loss_tracker[-1] != "B":
+                        win_counter = 0
+                        lose_counter = 0
+                    win_loss_tracker.append("B")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check if stopped out first
+                elif (highs[i] >= trailing_sl) and (trade_side == -1):
+                    exit_fee = quantity * trailing_sl * market_fee
+                    df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
+                    balance += ((((1 - (trailing_sl / entry_price)) * trade_balance) - entry_fee) - exit_fee)
+                    balance_history.append(balance)
+                    df.at[times[i], "%_moved"] = (1 - (trailing_sl / entry_price)) * 100
+                    trades_won += 1
+                    trade_side = 0
+                    entry_price = np.NaN
+                    entry_time = np.NaN
+                    hybrid_sl_activated = False
+                    df.at[times[i], "balance_tracker"] = balance
+                    df.at[times[i], "trades"] += "Win Short,"
+                    if win_loss_tracker[-1] != "W":
+                        win_counter += 1
+                        lose_counter = 0
+                        max_wins = max(max_wins, win_counter)
+                    elif win_loss_tracker[-1] == "W":
+                        win_counter += 1
+                        max_wins = max(max_wins, win_counter)
+                    win_loss_tracker.append("W")
+                    trade_times.append(pd.to_datetime(df.index[i]))
+                # Check if sl moved
+                elif (highs[i] >= guppy_6[i]) and (trade_side == -1):
+                    gsl_breakeven = False
+                    if closes[i] >= guppy_6[i]:
+                        df.at[times[i], 'sl_tracker'] += "SL moved"
+                        trailing_sl = closes[i] * (1 + (band6_cushion_short / 100))
+                    else:
+                        df.at[times[i], 'sl_tracker'] += "SL moved"
+                        trailing_sl = guppy_6[i] * (1 + (band6_cushion_short / 100))
+########################################################################################################################
+
+        # 1 TP (Normal SL)
+        if (tp_long == 1) and (trade_side == 1) and (sl_type_long == 1):
             if (lows[i] <= entry_price * (1 - sl_long / 100)) and (times[i] > entry_time) and not sl_moved:
                 exit_fee = (quantity * entry_price * (1 - sl_long / 100)) * market_fee
                 df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
@@ -593,7 +1245,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
                         max_wins = max(max_wins, win_counter)
                     win_loss_tracker.append("W")
                     trade_times.append(pd.to_datetime(df.index[i]))
-        elif tp_short == 1 and trade_side == -1:
+        elif (tp_short == 1) and (trade_side == -1) and (sl_type_short == 1):
             if (highs[i] >= entry_price * (1 + sl_short / 100)) and (times[i] > entry_time) and not sl_moved:
                 exit_fee = (quantity * (entry_price * (1 + sl_short / 100))) * market_fee
                 df.at[times[i], "fees"] = f"{entry_fee}, {exit_fee}"
@@ -661,7 +1313,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
                     trade_times.append(pd.to_datetime(df.index[i]))
 
         # 2 TPs
-        elif tp_long == 2 and trade_side == 1:
+        elif (tp_long == 2) and (trade_side == 1):
             if (lows[i] <= entry_price * (1 - sl_long / 100)) and times[i] > entry_time and not sl_moved:
                 exit_fee = (quantity * (entry_price * (1 - sl_long / 100))) * market_fee
                 balance -= (sl_long / 100) * trade_balance - entry_fee - exit_fee
@@ -720,7 +1372,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
                     sl_moved_time = np.NaN
                     df.at[times[i], "balance_tracker"] = balance
 
-        elif tp_short == 2 and trade_side == -1:
+        elif (tp_short == 2) and (trade_side == -1):
             if (highs[i] >= entry_price * (1 + sl_short / 100)) and times[i] > entry_time and not sl_moved:
                 exit_fee = (quantity * (entry_price * (1 + sl_short / 100))) * market_fee
                 balance -= (sl_short / 100) * trade_balance - entry_fee - exit_fee
@@ -780,7 +1432,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
                     df.at[times[i], "balance_tracker"] = balance
 
         # 3 TPs
-        elif tp_long == 3 and trade_side == 1:
+        elif (tp_long == 3) and (trade_side == 1):
             if (lows[i] <= entry_price * (1 - sl_long / 100)) and times[i] > entry_time and not sl_moved:
                 exit_fee = (quantity * (entry_price * (1 - sl_long / 100))) * market_fee
                 balance -= (sl_long / 100) * trade_balance - entry_fee - exit_fee
@@ -861,7 +1513,7 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
                     sl_moved = False
                     sl_moved_time = np.NaN
                     df.at[times[i], "balance_tracker"] = balance
-        elif tp_short == 3 and trade_side == -1:
+        elif (tp_short == 3) and (trade_side == -1):
             if (highs[i] >= entry_price * (1 + sl_short / 100)) and times[i] > entry_time and not sl_moved:
                 exit_fee = (quantity * (entry_price * (1 + sl_short / 100))) * market_fee
                 balance -= (sl_short / 100) * trade_balance - entry_fee - exit_fee

@@ -326,15 +326,17 @@ class Nsga2:
                 s_loss_fee = bps * (1 + params["sl_short"] / 100) * market_fee
                 short_reward = bps * (params["stp1"] / 100) - s_entry - s_win_fee
                 short_risk = bps * (params["sl_short"] / 100) + s_entry + s_loss_fee
+                rr_min = 5.0
+                rr_max = 10.0
                 rr_short = round(short_reward / short_risk, 3)
-                if (1.5 < rr_long) and (rr_long < 15) and (1.5 < rr_short) and (rr_short < 15):
+                if (rr_min < rr_long) and (rr_long < rr_max) and (rr_min < rr_short) and (rr_short < rr_max):
                     # print("RR ok")
                     break
-                if (rr_long > 15) or (rr_long < 1.5):
+                if (rr_long > rr_max) or (rr_long < rr_min):
                     params["sl_long"] = round(random.uniform(0.1, 2.5), 1)
                     params["ltp1"] = round(random.uniform(0.2, 5.0), 1)
                     # print(f"{rr_long} Recalculating RR long")
-                if (rr_short > 15) or (rr_short < 1.5):
+                if (rr_short > rr_max) or (rr_short < rr_min):
                     params["sl_short"] = round(random.uniform(0.1, 2.5), 1)
                     params["stp1"] = round(random.uniform(0.2, 5.0), 1)
                     # print(f"{rr_short} Recalculating RR short")
@@ -492,33 +494,33 @@ class Nsga2:
                 #     (indiv_2.pnl_cv < indiv_1.pnl_cv or indiv_2.max_dd < indiv_1.max_dd):
                 #     indiv_1.dominated_by += 1
 
-                # # v. 4.1.11
-                # if (indiv_1.pnl > indiv_2.pnl) and (((indiv_1.max_dd <= indiv_2.max_dd) and
-                #                                      (indiv_1.win_rate >= indiv_2.win_rate) and
-                #                                      ((indiv_1.max_dd < indiv_2.max_dd) or
-                #                                       (indiv_1.win_rate > indiv_2.win_rate))) or
-                #                                     ((indiv_1.max_dd <= indiv_2.max_dd) and
-                #                                      (indiv_1.num_trades >= indiv_2.num_trades) and
-                #                                      ((indiv_1.max_dd < indiv_2.max_dd) or
-                #                                       (indiv_1.num_trades > indiv_2.num_trades))) or
-                #                                     ((indiv_1.win_rate >= indiv_2.win_rate) and
-                #                                      (indiv_1.num_trades >= indiv_2.num_trades) and
-                #                                      ((indiv_1.win_rate > indiv_2.win_rate) or
-                #                                       (indiv_1.num_trades > indiv_2.num_trades)))):
-                #     indiv_1.dominates.append(id_2)
-                # elif (indiv_2.pnl > indiv_1.pnl) and (((indiv_2.max_dd <= indiv_1.max_dd) and
-                #                                        (indiv_2.win_rate >= indiv_1.win_rate) and
-                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
-                #                                        (indiv_2.win_rate > indiv_1.win_rate))) or
-                #                                       ((indiv_2.max_dd <= indiv_1.max_dd) and
-                #                                        (indiv_2.num_trades >= indiv_1.num_trades) and
-                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
-                #                                        (indiv_2.num_trades > indiv_1.num_trades))) or
-                #                                       (indiv_2.win_rate >= indiv_1.win_rate) and
-                #                                       (indiv_2.num_trades >= indiv_1.num_trades) and
-                #                                       ((indiv_2.win_rate > indiv_1.win_rate) or
-                #                                        (indiv_2.num_trades > indiv_1.num_trades))):
-                #     indiv_1.dominated_by += 1
+                # v. 4.1.11
+                if (indiv_1.pnl > indiv_2.pnl) and (((indiv_1.max_dd <= indiv_2.max_dd) and
+                                                     (indiv_1.win_rate >= indiv_2.win_rate) and
+                                                     ((indiv_1.max_dd < indiv_2.max_dd) or
+                                                      (indiv_1.win_rate > indiv_2.win_rate))) or
+                                                    ((indiv_1.max_dd <= indiv_2.max_dd) and
+                                                     (indiv_1.num_trades >= indiv_2.num_trades) and
+                                                     ((indiv_1.max_dd < indiv_2.max_dd) or
+                                                      (indiv_1.num_trades > indiv_2.num_trades))) or
+                                                    ((indiv_1.win_rate >= indiv_2.win_rate) and
+                                                     (indiv_1.num_trades >= indiv_2.num_trades) and
+                                                     ((indiv_1.win_rate > indiv_2.win_rate) or
+                                                      (indiv_1.num_trades > indiv_2.num_trades)))):
+                    indiv_1.dominates.append(id_2)
+                elif (indiv_2.pnl > indiv_1.pnl) and (((indiv_2.max_dd <= indiv_1.max_dd) and
+                                                       (indiv_2.win_rate >= indiv_1.win_rate) and
+                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
+                                                       (indiv_2.win_rate > indiv_1.win_rate))) or
+                                                      ((indiv_2.max_dd <= indiv_1.max_dd) and
+                                                       (indiv_2.num_trades >= indiv_1.num_trades) and
+                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
+                                                       (indiv_2.num_trades > indiv_1.num_trades))) or
+                                                      (indiv_2.win_rate >= indiv_1.win_rate) and
+                                                      (indiv_2.num_trades >= indiv_1.num_trades) and
+                                                      ((indiv_2.win_rate > indiv_1.win_rate) or
+                                                       (indiv_2.num_trades > indiv_1.num_trades))):
+                    indiv_1.dominated_by += 1
 
                 # # v 4.1.11a
                 # if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
@@ -542,17 +544,17 @@ class Nsga2:
                 # elif indiv_2.pnl > indiv_1.pnl:
                 #     indiv_1.dominated_by += 1
 
-                # v. 4.1.13
-                if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
-                                                    (indiv_1.num_trades >= indiv_2.num_trades)) and \
-                                                    ((indiv_1.max_dd < indiv_2.max_dd) or
-                                                    (indiv_1.num_trades > indiv_2.num_trades)):
-                    indiv_1.dominates.append(id_2)
-                elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
-                                                      (indiv_2.num_trades >= indiv_1.num_trades)) and \
-                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
-                                                      (indiv_2.num_trades > indiv_1.num_trades)):
-                    indiv_1.dominated_by += 1
+                # # v. 4.1.13
+                # if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
+                #                                     (indiv_1.num_trades >= indiv_2.num_trades)) and \
+                #                                     ((indiv_1.max_dd < indiv_2.max_dd) or
+                #                                     (indiv_1.num_trades > indiv_2.num_trades)):
+                #     indiv_1.dominates.append(id_2)
+                # elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
+                #                                       (indiv_2.num_trades >= indiv_1.num_trades)) and \
+                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
+                #                                       (indiv_2.num_trades > indiv_1.num_trades)):
+                #     indiv_1.dominated_by += 1
 
             if indiv_1.dominated_by == 0:
                 if len(fronts) == 0:
@@ -662,6 +664,16 @@ class Nsga2:
                                                 guppy_fast_short=bt.parameters['guppy_fast_short'],
                                                 ribbon_check_long=bt.parameters['ribbon_check_long'],
                                                 ribbon_check_short=bt.parameters['ribbon_check_short'],
+                                                sl_type_long=bt.parameters['sl_type_long'],
+                                                sl_type_short=bt.parameters['sl_type_short'],
+                                                min_rr_long=bt.parameters['min_rr_long'],
+                                                min_rr_short=bt.parameters['min_rr_short'],
+                                                tsl_size_long=bt.parameters['tsl_size_long'],
+                                                tsl_size_short=bt.parameters['tsl_size_short'],
+                                                band6_cushion_long=bt.parameters['band6_cushion_long'],
+                                                band6_cushion_short=bt.parameters['band6_cushion_short'],
+                                                gsl_moveto_long=bt.parameters['gsl_moveto_long'],
+                                                gsl_moveto_short=bt.parameters['gsl_moveto_short'],
                                                 move_sl_type_long=bt.parameters['move_sl_type_long'],
                                                 move_sl_type_short=bt.parameters['move_sl_type_short'],
                                                 move_sl_long=bt.parameters['move_sl_long'],
@@ -760,6 +772,16 @@ class Nsga2:
                                             guppy_fast_short=rss_pop[i].parameters['guppy_fast_short'],
                                             ribbon_check_long=rss_pop[i].parameters['ribbon_check_long'],
                                             ribbon_check_short=rss_pop[i].parameters['ribbon_check_short'],
+                                            sl_type_long=rss_pop[i].parameters['sl_type_long'],
+                                            sl_type_short=rss_pop[i].parameters['sl_type_short'],
+                                            min_rr_long=rss_pop[i].parameters['min_rr_long'],
+                                            min_rr_short=rss_pop[i].parameters['min_rr_short'],
+                                            tsl_size_long=rss_pop[i].parameters['tsl_size_long'],
+                                            tsl_size_short=rss_pop[i].parameters['tsl_size_short'],
+                                            band6_cushion_long=rss_pop[i].parameters['band6_cushion_long'],
+                                            band6_cushion_short=rss_pop[i].parameters['band6_cushion_short'],
+                                            gsl_moveto_long=rss_pop[i].parameters['gsl_moveto_long'],
+                                            gsl_moveto_short=rss_pop[i].parameters['gsl_moveto_short'],
                                             move_sl_type_long=rss_pop[i].parameters['move_sl_type_long'],
                                             move_sl_type_short=rss_pop[i].parameters['move_sl_type_short'],
                                             move_sl_long=rss_pop[i].parameters['move_sl_long'],
