@@ -16,72 +16,148 @@ import os.path
 import time
 
 
-def run(contract: Contract, strategy: str, tf: str, from_time: int, to_time: int, initial_capital: int, file_name: str):
+def run(contract: Contract, strategy: str, tf: str, from_time: int, to_time: int, initial_capital: int, file_name:
+str, mode: str):
     exchange = "bybit"
     param_descriptions = STRAT_PARAMS[strategy]
     params = dict()
-    csv_data = pd.read_csv(file_name, header=0)
-    csv_data = csv_data.iloc[:, 1:]
-    rows = csv_data.index[-1] + 1
-    multitest_results = pd.DataFrame()
-    file_name = file_name.lstrip("Results/Optimizations/OptimizerResults_")
-    file_name = file_name.rstrip(".csv")
+    if mode == "speedtest":
+        csv_data = pd.read_csv(file_name, header=0)
+        csv_data = csv_data.iloc[:, 1:]
+        rows = csv_data.index[-1] + 1
+        multitest_results = pd.DataFrame()
+        file_name = file_name.lstrip("Results/Optimizations/OptimizerResults_")
+        file_name = file_name.rstrip(".csv")
 
-    iterations = 0
-    while iterations < rows:
+        iterations = 0
+        while iterations < rows:
+            for p_code, p in param_descriptions.items():
+                if p["type"] == Y_N:
+                    params[p_code] = str(csv_data.at[iterations, p_code])
+                else:
+                    params[p_code] = p["type"](csv_data.at[iterations, p_code])
+
+        # if strategy == "obv":
+        #     h5_db = Hdf5Client()
+        #     data = h5_db.get_data(contract, from_time, to_time)
+        #     data = resample_timeframe(data, tf)
+        #
+        #     pnl, max_drawdown = strategies.obv.backtest(data, ma_period=params["ma_period"])
+        #     return pnl, max_drawdown
+        #
+        # elif strategy == "ichimoku":
+        #     h5_db = Hdf5Client()
+        #     data = h5_db.get_data(contract, from_time, to_time)
+        #     data = resample_timeframe(data, tf)
+        #
+        #     pnl, max_drawdown = strategies.ichimoku.backtest(data, tenkan_period=params["tenkan"],
+        #                                                      kijun_period=params["kijun"])
+        #     return pnl, max_drawdown
+        #
+        # elif strategy == "sup_res":
+        #     h5_db = Hdf5Client()
+        #     data = h5_db.get_data(contract, from_time, to_time)
+        #     data = resample_timeframe(data, tf)
+        #
+        #     pnl, max_drawdown = strategies.support_resistance.backtest(data, min_points=params["min_points"],
+        #                                                                min_diff_points=params["min_diff_points"],
+        #                                                                rounding_nb=params["rounding_nb"],
+        #                                                                take_profit=params["take_profit"],
+        #                                                                stop_loss=params["stop_loss"])
+        #     return pnl, max_drawdown
+        #
+        # elif strategy == "mfi":
+        #     h5_db = Hdf5Client()
+        #     data = h5_db.get_data(contract, from_time, to_time)
+        #     data = resample_timeframe(data, tf)
+        #     pnl, max_drawdown = strategies.mfi.backtest(data, period=params['period'], multiplier=params['multiplier'],
+        #                                                 ypos=params['ypos'])
+        #     return pnl, max_drawdown
+        #
+        # elif strategy == "sma":
+        #     # import C++ library
+        #     lib = get_library()
+        #
+        #     obj = lib.Sma_new(exchange.encode(), contract.symbol.encode(), tf.encode(), from_time, to_time)
+        #     lib.Sma_execute_backtest(obj, params["slow_ma"], params["fast_ma"])
+        #     pnl = lib.Sma_get_pnl(obj)
+        #     max_drawdown = lib.Sma_get_max_dd(obj)
+        #
+        #     return pnl, max_drawdown
+
+            h5_db = Hdf5Client()
+            data = h5_db.get_data(contract, from_time, to_time)
+            data = resample_timeframe(data, tf)
+            pnl, max_drawdown, win_rate, rr_long, rr_short, num_trades, mod_win_rate, max_losses, max_wins, num_longs, \
+                num_shorts \
+                = strategies.guppy.backtest(df=data, initial_capital=initial_capital,
+                                            trade_longs=params['trade_longs'],
+                                            trade_shorts=params['trade_shorts'], sl_long=params['sl_long'],
+                                            sl_short=params['sl_short'], mfi_long=params['mfi_long'],
+                                            mfi_short=params['mfi_short'], mfi_period=params['mfi_period'],
+                                            mfi_mult=params['mfi_mult'], mfi_ypos=params['mfi_ypos'],
+                                            mfi_long_threshold=params['mfi_long_threshold'],
+                                            mfi_short_threshold=params['mfi_short_threshold'],
+                                            adx_long=params['adx_long'], adx_short=params['adx_short'],
+                                            macd_short=params['macd_short'], macd_fast=params['macd_fast'],
+                                            macd_slow=params['macd_slow'], macd_signal=params['macd_signal'],
+                                            macd_long=params['macd_long'], rsi_long=params['rsi_long'],
+                                            rsi_short=params['rsi_short'], rsi_length=params['rsi_length'],
+                                            rsi_overbought=params['rsi_overbought'], rsi_oversold=params['rsi_oversold'],
+                                            ema200_long=params['ema200_long'],
+                                            ema200_short=params['ema200_short'],
+                                            guppy_fast_long=params['guppy_fast_long'],
+                                            guppy_fast_short=params['guppy_fast_short'],
+                                            ribbon_check_long=params['ribbon_check_long'],
+                                            ribbon_check_short=params['ribbon_check_short'],
+                                            sl_type_long=params['sl_type_long'],
+                                            sl_type_short=params['sl_type_short'],
+                                            min_rr_long=params['min_rr_long'],
+                                            min_rr_short=params['min_rr_short'],
+                                            tsl_size_long=params['tsl_size_long'],
+                                            tsl_size_short=params['tsl_size_short'],
+                                            band6_cushion_long=params['band6_cushion_long'],
+                                            band6_cushion_short=params['band6_cushion_short'],
+                                            gsl_moveto_long=params['gsl_moveto_long'],
+                                            gsl_moveto_short=params['gsl_moveto_short'],
+                                            move_sl_type_long=params['move_sl_type_long'],
+                                            move_sl_type_short=params['move_sl_type_short'],
+                                            move_sl_long=params['move_sl_long'],
+                                            move_sl_short=params['move_sl_short'], risk=params['risk'],
+                                            leverage=params['leverage'], tp_long=params['tp_long'],
+                                            tp_short=params['tp_short'], ltp1=params['ltp1'],
+                                            ltp1_qty=params['ltp1_qty'], ltp2=params['ltp2'],
+                                            ltp2_qty=params['ltp2_qty'], ltp3=params['ltp3'],
+                                            stp1=params['stp1'], stp1_qty=params['stp1_qty'],
+                                            stp2=params['stp2'], stp2_qty=params['stp2_qty'],
+                                            stp3=params['stp3'], mode="b", contract=contract, tf=tf,
+                                            from_time=from_time, to_time=to_time,
+                                            bb_long=params['bb_long'], bb_short=params['bb_short'],
+                                            bb_length=params['bb_length'],
+                                            bb_mult=params['bb_mult'],
+                                            wae_long=params['wae_long'], wae_short=params['wae_short'],
+                                            wae_sensitivity=params['wae_sensitivity'],
+                                            wae_fast_length=params['wae_fast_length'],
+                                            wae_slow_length=params['wae_slow_length'],
+                                            wae_bb_length=params['wae_bb_length'],
+                                            wae_bb_mult=params['wae_bb_mult'],
+                                            wae_rma_length=params['wae_rma_length'],
+                                            wae_dz_mult=params['wae_dz_mult'],
+                                            wae_expl_check=params['wae_expl_check'],
+                                            adx_smoothing=params['adx_smoothing'],
+                                            adx_di_length=params['adx_di_length'],
+                                            adx_length_long=params['adx_length_long'],
+                                            adx_length_short=params['adx_length_short'], iteration=iterations)
+            iterations += 1
+            # return pnl, max_drawdown, win_rate, rr_long, rr_short, num_trades, max_losses, max_wins
+
+    elif mode == "backtest":
+        csv_data = pd.read_csv(file_name, header=None, names=["parameter", "value"], index_col="parameter")
         for p_code, p in param_descriptions.items():
             if p["type"] == Y_N:
-                params[p_code] = str(csv_data.at[iterations, p_code])
+                params[p_code] = str(csv_data.at[str(p_code), "value"])
             else:
-                params[p_code] = p["type"](csv_data.at[iterations, p_code])
-
-    # if strategy == "obv":
-    #     h5_db = Hdf5Client()
-    #     data = h5_db.get_data(contract, from_time, to_time)
-    #     data = resample_timeframe(data, tf)
-    #
-    #     pnl, max_drawdown = strategies.obv.backtest(data, ma_period=params["ma_period"])
-    #     return pnl, max_drawdown
-    #
-    # elif strategy == "ichimoku":
-    #     h5_db = Hdf5Client()
-    #     data = h5_db.get_data(contract, from_time, to_time)
-    #     data = resample_timeframe(data, tf)
-    #
-    #     pnl, max_drawdown = strategies.ichimoku.backtest(data, tenkan_period=params["tenkan"],
-    #                                                      kijun_period=params["kijun"])
-    #     return pnl, max_drawdown
-    #
-    # elif strategy == "sup_res":
-    #     h5_db = Hdf5Client()
-    #     data = h5_db.get_data(contract, from_time, to_time)
-    #     data = resample_timeframe(data, tf)
-    #
-    #     pnl, max_drawdown = strategies.support_resistance.backtest(data, min_points=params["min_points"],
-    #                                                                min_diff_points=params["min_diff_points"],
-    #                                                                rounding_nb=params["rounding_nb"],
-    #                                                                take_profit=params["take_profit"],
-    #                                                                stop_loss=params["stop_loss"])
-    #     return pnl, max_drawdown
-    #
-    # elif strategy == "mfi":
-    #     h5_db = Hdf5Client()
-    #     data = h5_db.get_data(contract, from_time, to_time)
-    #     data = resample_timeframe(data, tf)
-    #     pnl, max_drawdown = strategies.mfi.backtest(data, period=params['period'], multiplier=params['multiplier'],
-    #                                                 ypos=params['ypos'])
-    #     return pnl, max_drawdown
-    #
-    # elif strategy == "sma":
-    #     # import C++ library
-    #     lib = get_library()
-    #
-    #     obj = lib.Sma_new(exchange.encode(), contract.symbol.encode(), tf.encode(), from_time, to_time)
-    #     lib.Sma_execute_backtest(obj, params["slow_ma"], params["fast_ma"])
-    #     pnl = lib.Sma_get_pnl(obj)
-    #     max_drawdown = lib.Sma_get_max_dd(obj)
-    #
-    #     return pnl, max_drawdown
+                params[p_code] = p["type"](csv_data.at[str(p_code), "value"])
 
         h5_db = Hdf5Client()
         data = h5_db.get_data(contract, from_time, to_time)
@@ -145,9 +221,8 @@ def run(contract: Contract, strategy: str, tf: str, from_time: int, to_time: int
                                         adx_smoothing=params['adx_smoothing'],
                                         adx_di_length=params['adx_di_length'],
                                         adx_length_long=params['adx_length_long'],
-                                        adx_length_short=params['adx_length_short'], iteration=iterations)
-        iterations += 1
-        # return pnl, max_drawdown, win_rate, rr_long, rr_short, num_trades, max_losses, max_wins
+                                        adx_length_short=params['adx_length_short'], iteration=1)
+        return pnl, max_drawdown, win_rate, rr_long, rr_short, num_trades, max_losses, max_wins
 
 
 def random_start_end(contract: Contract, tf: str, time_delta: float, type:str) -> typing.Tuple[int, int]:
@@ -662,7 +737,7 @@ def tester(contract: Contract, strategy: str, tf: str, time_delta, tests: int, i
 
 
 def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital: int, file_name: str,
-                    min_per_delta: int, op_df: pd.DataFrame) -> pd.DataFrame:
+                    min_per_delta: int, op_df: pd.DataFrame, mode: str) -> pd.DataFrame:
     param_descriptions = STRAT_PARAMS[strategy]
     params = dict()
     df = pd.DataFrame()
@@ -673,20 +748,33 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
     #     else:
     #         print(f"ERROR: {file_name} does not exist")
     #         continue
-
-    csv_data = pd.read_csv(file_name, header=0)
-    csv_data = csv_data.iloc[:, 1:]
-    rows = csv_data.index[-1] + 1
-    file_name = file_name.rstrip(".csv")
-    version, c, dates = file_name.partition(f"OptimizerResults_{contract.symbol}_{tf}_")
-    version = version.lstrip("Results/Optimizations/")
-    start_date, a, end_date = dates.partition("_to_")
-    end_date, a, b = end_date.partition("_")
-    start_time = start_date
-    end_time = end_date
-    start_date = int(datetime.datetime.strptime(start_date, "%Y-%m-%d-%I%p").timestamp())
-    start_date -= (60 * TF_SECONDS[tf])
-    end_date = int(datetime.datetime.strptime(end_date, "%Y-%m-%d-%I%p").timestamp())
+    if mode == "speedtest":
+        csv_data = pd.read_csv(file_name, header=0)
+        csv_data = csv_data.iloc[:, 1:]
+        rows = csv_data.index[-1] + 1
+        file_name = file_name.rstrip(".csv")
+        version, c, dates = file_name.partition(f"OptimizerResults_{contract.symbol}_{tf}_")
+        version = version.lstrip("Results/Optimizations/")
+        start_date, a, end_date = dates.partition("_to_")
+        end_date, a, b = end_date.partition("_")
+        start_time = start_date
+        end_time = end_date
+        start_date = int(datetime.datetime.strptime(start_date, "%Y-%m-%d-%I%p").timestamp())
+        start_date -= (60 * TF_SECONDS[tf])
+        end_date = int(datetime.datetime.strptime(end_date, "%Y-%m-%d-%I%p").timestamp())
+    elif mode == "stnop":
+        csv_data = pd.read_csv(file_name, header=0)
+        csv_data = csv_data.iloc[:, 1:]
+        rows = csv_data.index[-1] + 1
+        file_name = file_name.rstrip(".csv")
+        version, c, dates = file_name.partition(f"OptimizerResults_{contract.symbol}_{tf}_")
+        start_date, a, end_date = dates.partition("_to_")
+        end_date, a, b = end_date.partition("_")
+        start_time = start_date
+        end_time = end_date
+        start_date = int(datetime.datetime.strptime(start_date, "%Y-%m-%d-%I%p").timestamp())
+        start_date -= (60 * TF_SECONDS[tf])
+        end_date = int(datetime.datetime.strptime(end_date, "%Y-%m-%d-%I%p").timestamp())
     pnl_list = []
     pnl_delta = []
     pnl_percent_delta = []
@@ -759,6 +847,8 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
     df["original_num_shorts"] = csv_data["num_shorts"]
     df["original_max_losses"] = csv_data["max_losses"]
     df["original_max_wins"] = csv_data["max_wins"]
+    df["min_rr_long"] = csv_data["min_rr_long"]
+    df["min_rr_short"] = csv_data["min_rr_long"]
     # df.index += 2
 
     for i in range(len(pnl_percent_delta)):
@@ -770,22 +860,17 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
     current_time = now.strftime("%Y-%m-%d-%I%p")
 
     if os.path.exists(f"Results/FutureTests/{version} MegaFutureTest_{contract.symbol}_{tf}_{start_time}_to"
-                      f"_{end_time}_to"
-                      f"_{current_time}.csv"):
+                      f"_{end_time}_to_{current_time}.csv"):
         while True:
             try:
                 myfile = open(f"Results/FutureTests/{version} MegaFutureTest_{contract.symbol}_{tf}_{start_time}_to"
-                              f"_{end_time}_to"
-                                f"_{current_time}.csv",
-                              "w+")
+                              f"_{end_time}_to_{current_time}.csv", "w+")
                 break
             except IOError:
                 input(f"Cannot write results to csv file. Please close \n"
                       f"Results/FutureTests/{version} MegaFutureTest_{contract.symbol}_{tf}_{start_time}_to"
-                      f"_{end_time}_to"
-                      f"_{current_time}.csv"
-                      f"\nThen press Enter to "
-                      f"retry.")
+                      f"_{end_time}_to_{current_time}.csv"
+                      f"\nThen press Enter to retry.")
     df.to_csv(f"Results/FutureTests/{version} MegaFutureTest_{contract.symbol}_{tf}_{start_time}_to_{end_time}_to"
               f"_{current_time}.csv")
     return op_df
