@@ -494,33 +494,33 @@ class Nsga2:
                 #     (indiv_2.pnl_cv < indiv_1.pnl_cv or indiv_2.max_dd < indiv_1.max_dd):
                 #     indiv_1.dominated_by += 1
 
-                # # v. 4.1.11
-                # if (indiv_1.pnl > indiv_2.pnl) and (((indiv_1.max_dd <= indiv_2.max_dd) and
-                #                                      (indiv_1.win_rate >= indiv_2.win_rate) and
-                #                                      ((indiv_1.max_dd < indiv_2.max_dd) or
-                #                                       (indiv_1.win_rate > indiv_2.win_rate))) or
-                #                                     ((indiv_1.max_dd <= indiv_2.max_dd) and
-                #                                      (indiv_1.num_trades >= indiv_2.num_trades) and
-                #                                      ((indiv_1.max_dd < indiv_2.max_dd) or
-                #                                       (indiv_1.num_trades > indiv_2.num_trades))) or
-                #                                     ((indiv_1.win_rate >= indiv_2.win_rate) and
-                #                                      (indiv_1.num_trades >= indiv_2.num_trades) and
-                #                                      ((indiv_1.win_rate > indiv_2.win_rate) or
-                #                                       (indiv_1.num_trades > indiv_2.num_trades)))):
-                #     indiv_1.dominates.append(id_2)
-                # elif (indiv_2.pnl > indiv_1.pnl) and (((indiv_2.max_dd <= indiv_1.max_dd) and
-                #                                        (indiv_2.win_rate >= indiv_1.win_rate) and
-                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
-                #                                        (indiv_2.win_rate > indiv_1.win_rate))) or
-                #                                       ((indiv_2.max_dd <= indiv_1.max_dd) and
-                #                                        (indiv_2.num_trades >= indiv_1.num_trades) and
-                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
-                #                                        (indiv_2.num_trades > indiv_1.num_trades))) or
-                #                                       (indiv_2.win_rate >= indiv_1.win_rate) and
-                #                                       (indiv_2.num_trades >= indiv_1.num_trades) and
-                #                                       ((indiv_2.win_rate > indiv_1.win_rate) or
-                #                                        (indiv_2.num_trades > indiv_1.num_trades))):
-                #     indiv_1.dominated_by += 1
+                # v. 4.1.11
+                if (indiv_1.pnl > indiv_2.pnl) and (((indiv_1.max_dd <= indiv_2.max_dd) and
+                                                     (indiv_1.win_rate >= indiv_2.win_rate) and
+                                                     ((indiv_1.max_dd < indiv_2.max_dd) or
+                                                      (indiv_1.win_rate > indiv_2.win_rate))) or
+                                                    ((indiv_1.max_dd <= indiv_2.max_dd) and
+                                                     (indiv_1.num_trades >= indiv_2.num_trades) and
+                                                     ((indiv_1.max_dd < indiv_2.max_dd) or
+                                                      (indiv_1.num_trades > indiv_2.num_trades))) or
+                                                    ((indiv_1.win_rate >= indiv_2.win_rate) and
+                                                     (indiv_1.num_trades >= indiv_2.num_trades) and
+                                                     ((indiv_1.win_rate > indiv_2.win_rate) or
+                                                      (indiv_1.num_trades > indiv_2.num_trades)))):
+                    indiv_1.dominates.append(id_2)
+                elif (indiv_2.pnl > indiv_1.pnl) and (((indiv_2.max_dd <= indiv_1.max_dd) and
+                                                       (indiv_2.win_rate >= indiv_1.win_rate) and
+                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
+                                                       (indiv_2.win_rate > indiv_1.win_rate))) or
+                                                      ((indiv_2.max_dd <= indiv_1.max_dd) and
+                                                       (indiv_2.num_trades >= indiv_1.num_trades) and
+                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
+                                                       (indiv_2.num_trades > indiv_1.num_trades))) or
+                                                      (indiv_2.win_rate >= indiv_1.win_rate) and
+                                                      (indiv_2.num_trades >= indiv_1.num_trades) and
+                                                      ((indiv_2.win_rate > indiv_1.win_rate) or
+                                                       (indiv_2.num_trades > indiv_1.num_trades))):
+                    indiv_1.dominated_by += 1
 
                 # # v 4.1.11a
                 # if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
@@ -544,17 +544,17 @@ class Nsga2:
                 # elif indiv_2.pnl > indiv_1.pnl:
                 #     indiv_1.dominated_by += 1
 
-                # v. 4.1.13
-                if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
-                                                    (indiv_1.num_trades >= indiv_2.num_trades)) and \
-                                                    ((indiv_1.max_dd < indiv_2.max_dd) or
-                                                    (indiv_1.num_trades > indiv_2.num_trades)):
-                    indiv_1.dominates.append(id_2)
-                elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
-                                                      (indiv_2.num_trades >= indiv_1.num_trades)) and \
-                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
-                                                      (indiv_2.num_trades > indiv_1.num_trades)):
-                    indiv_1.dominated_by += 1
+                # # v. 4.1.13
+                # if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
+                #                                     (indiv_1.num_trades >= indiv_2.num_trades)) and \
+                #                                     ((indiv_1.max_dd < indiv_2.max_dd) or
+                #                                     (indiv_1.num_trades > indiv_2.num_trades)):
+                #     indiv_1.dominates.append(id_2)
+                # elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
+                #                                       (indiv_2.num_trades >= indiv_1.num_trades)) and \
+                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
+                #                                       (indiv_2.num_trades > indiv_1.num_trades)):
+                #     indiv_1.dominated_by += 1
 
             if indiv_1.dominated_by == 0:
                 if len(fronts) == 0:

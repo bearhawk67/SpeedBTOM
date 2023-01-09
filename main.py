@@ -60,6 +60,7 @@ if __name__ == "__main__":
             symbol = client.contracts[i]
 
     if mode == "data":
+        start_time = time.time()
         if symbol != "":
             collect_all(client, symbol, 1622413603)
         else:
@@ -289,7 +290,7 @@ if __name__ == "__main__":
                 multitest_type = "mp"
                 pool_type = "last year"
                 time_delta = to_time - from_time
-                mtests = 100
+                mtests = 1
                 backtester.multitest(symbol, strategy, timeframe, multitest_type, time_delta, initial_capital, mtests,
                                      pool_type, file_name)
 
@@ -448,6 +449,6 @@ if __name__ == "__main__":
                     smtp.sendmail("guppy.bot.messenger@gmail.com", email, message)
                     smtp.quit()
 
-print(f"Time to complete: {int(time.time() - start_time)} seconds")
+# print(f"Time to complete: {int(time.time() - start_time)} seconds")
 
 a = input("Press Enter to close.")
