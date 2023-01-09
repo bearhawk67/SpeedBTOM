@@ -90,11 +90,11 @@ STRAT_PARAMS = {
         "ribbon_check_short": {"name": "Don't enter shorts unless price closes below: [Fast Band (1-6), Slow Band ("
                                        "7-12), Off (13)]", "type": int, "min": 1, "max": 13},
         "sl_type_long": {"name": "SL type for longs (1. Normal, 2. Normal / Trailing Hybrid, 3. Normal / Trailing "
-                                 "Guppy Bands Hybrid, 4. Guppy Band Semi-Trailing Hybrid)", "type": int, "min": 4,
-                                 "max": 4},
+                                 "Guppy Bands Hybrid, 4. Guppy Band Semi-Trailing Hybrid)", "type": int, "min": 2,
+                                 "max": 2},
         "sl_type_short": {"name": "SL type for shorts (1. Normal, 2. Normal / Trailing Hybrid, 3. Normal / Trailing "
-                                  "Guppy Bands Hybrid, 4. Guppy Band Semi-Trailing Hybrid)", "type": int, "min": 4,
-                                  "max": 4},
+                                  "Guppy Bands Hybrid, 4. Guppy Band Semi-Trailing Hybrid)", "type": int, "min": 2,
+                                  "max": 2},
         "min_rr_long": {"name": "Min RR for longs: ", "type": float, "min": 1.5, "max": 3.0, "decimals": 1},
         "min_rr_short": {"name": "Min RR for shorts: ", "type": float, "min": 1.5, "max": 3.0, "decimals": 1},
         "tsl_size_long": {"name": "Trailing SL size for longs (%): ", "type": float, "min": 0.1, "max": 3.0,

@@ -55,10 +55,12 @@ def backtest(df: pd.DataFrame, initial_capital: int, trade_longs: str, trade_sho
     # Ribbon check
     df["slow_long"] = np.where((df["slow_1"] > df["slow_2"]) & (df["slow_2"] > df["slow_3"]) &
                                (df["slow_3"] > df["slow_4"]) & (df["slow_4"] > df["slow_5"]) &
-                               (df["slow_5"] > df["slow_6"]) & (df["slow_6"] != np.NaN), True, False)
+                               (df["slow_5"] > df["slow_6"]) & (df["slow_6"] != np.NaN) &
+                               (df["close"] > df["slow_6"]), True, False)
     df["slow_short"] = np.where((df["slow_1"] < df["slow_2"]) & (df["slow_2"] < df["slow_3"]) &
                                 (df["slow_3"] < df["slow_4"]) & (df["slow_4"] < df["slow_5"]) &
-                                (df["slow_5"] < df["slow_6"]) & (df["slow_6"] != np.NaN), True, False)
+                                (df["slow_5"] < df["slow_6"]) & (df["slow_6"] != np.NaN) &
+                                (df["close"] < df["slow_6"]), True, False)
 
     if guppy_fast_long.upper() == "Y":
         df["fast_long"] = np.where((df["fast_1"] > df["fast_2"]) & (df["fast_2"] > df["fast_3"]) &

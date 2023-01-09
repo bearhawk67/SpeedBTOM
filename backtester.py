@@ -849,12 +849,13 @@ def mega_futuretest(contract: Contract, strategy: str, tf: str, initial_capital:
     df["original_max_wins"] = csv_data["max_wins"]
     df["min_rr_long"] = csv_data["min_rr_long"]
     df["min_rr_short"] = csv_data["min_rr_long"]
-    # df.index += 2
 
     for i in range(len(pnl_percent_delta)):
         if pnl_percent_delta[i] < min_per_delta:
             df = df.drop(index=i)
             op_df = op_df.drop(index=i)
+    df.index += 2
+    op_df.index += 2
 
     now = datetime.datetime.now()
     current_time = now.strftime("%Y-%m-%d-%I%p")

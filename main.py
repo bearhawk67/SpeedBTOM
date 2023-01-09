@@ -289,7 +289,7 @@ if __name__ == "__main__":
                 multitest_type = "mp"
                 pool_type = "last year"
                 time_delta = to_time - from_time
-                mtests = 2
+                mtests = 100
                 backtester.multitest(symbol, strategy, timeframe, multitest_type, time_delta, initial_capital, mtests,
                                      pool_type, file_name)
 

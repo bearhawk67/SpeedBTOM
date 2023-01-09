@@ -250,96 +250,96 @@ class Nsga2:
             #     params["sl_short"] = round(random.uniform(0.1, 2.5), 1)
             #     params["stp1"] = round(random.uniform(2 * params["sl_short"], 5.0), 1)
 
-            rr_long: float
-            rr_short: float
-            market_fee = 0.0006
-            limit_fee = 0.0001
-            i = 0
-            for i in range(20):
-                bpl: int
-                bps: int
-                if 0 < params["sl_long"] < 0.2:
-                    bpl = 100
-                elif 0.2 <= params["sl_long"] < 0.25:
-                    bpl = 80
-                elif 0.25 <= params["sl_long"] < 0.33:
-                    bpl = 60
-                elif 0.33 <= params["sl_long"] < 0.4:
-                    bpl = 50
-                elif 0.4 <= params["sl_long"] < 0.5:
-                    bpl = 50
-                elif 0.5 <= params["sl_long"] < 0.67:
-                    bpl = 30
-                elif 0.67 <= params["sl_long"] < 0.8:
-                    bpl = 25
-                elif 0.8 <= params["sl_long"] < 1.0:
-                    bpl = 20
-                elif 1.0 <= params["sl_long"] < 1.25:
-                    bpl = 20
-                elif 1.25 <= params["sl_long"] < 1.33:
-                    bpl = 15
-                elif 1.33 <= params["sl_long"] < 1.67:
-                    bpl = 15
-                elif 1.67 <= params["sl_long"] < 2.0:
-                    bpl = 10
-                elif 2.0 <= params["sl_long"] <= 2.5:
-                    bpl = 10
-                else:
-                    bpl = 1
-                l_entry = bpl * market_fee
-                l_win_fee = bpl * (1 + params["ltp1"] / 100) * limit_fee
-                l_loss_fee = bpl * (1 - params["sl_long"] / 100) * market_fee
-                long_reward = bpl * (params["ltp1"] / 100) - l_entry - l_win_fee
-                long_risk = bpl * (params["sl_long"] / 100) + l_entry + l_loss_fee
-                rr_long = round(long_reward / long_risk, 3)
-
-                if 0 < params["sl_short"] < 0.2:
-                    bps = 100
-                elif 0.2 <= params["sl_short"] < 0.25:
-                    bps = 80
-                elif 0.25 <= params["sl_short"] < 0.33:
-                    bps = 60
-                elif 0.33 <= params["sl_short"] < 0.4:
-                    bps = 50
-                elif 0.4 <= params["sl_short"] < 0.5:
-                    bps = 50
-                elif 0.5 <= params["sl_short"] < 0.67:
-                    bps = 30
-                elif 0.67 <= params["sl_short"] < 0.8:
-                    bps = 25
-                elif 0.8 <= params["sl_short"] < 1.0:
-                    bps = 20
-                elif 1.0 <= params["sl_short"] < 1.25:
-                    bps = 20
-                elif 1.25 <= params["sl_short"] < 1.33:
-                    bps = 15
-                elif 1.33 <= params["sl_short"] < 1.67:
-                    bps = 15
-                elif 1.67 <= params["sl_short"] < 2.0:
-                    bps = 10
-                elif 2.0 <= params["sl_short"] <= 2.5:
-                    bps = 10
-                else:
-                    bps = 1
-                s_entry = bps * market_fee
-                s_win_fee = bps * (1 - params["stp1"] / 100) * limit_fee
-                s_loss_fee = bps * (1 + params["sl_short"] / 100) * market_fee
-                short_reward = bps * (params["stp1"] / 100) - s_entry - s_win_fee
-                short_risk = bps * (params["sl_short"] / 100) + s_entry + s_loss_fee
-                rr_min = 5.0
-                rr_max = 10.0
-                rr_short = round(short_reward / short_risk, 3)
-                if (rr_min < rr_long) and (rr_long < rr_max) and (rr_min < rr_short) and (rr_short < rr_max):
-                    # print("RR ok")
-                    break
-                if (rr_long > rr_max) or (rr_long < rr_min):
-                    params["sl_long"] = round(random.uniform(0.1, 2.5), 1)
-                    params["ltp1"] = round(random.uniform(0.2, 5.0), 1)
-                    # print(f"{rr_long} Recalculating RR long")
-                if (rr_short > rr_max) or (rr_short < rr_min):
-                    params["sl_short"] = round(random.uniform(0.1, 2.5), 1)
-                    params["stp1"] = round(random.uniform(0.2, 5.0), 1)
-                    # print(f"{rr_short} Recalculating RR short")
+            # rr_long: float
+            # rr_short: float
+            # market_fee = 0.0006
+            # limit_fee = 0.0001
+            # i = 0
+            # for i in range(20):
+            #     bpl: int
+            #     bps: int
+            #     if 0 < params["sl_long"] < 0.2:
+            #         bpl = 100
+            #     elif 0.2 <= params["sl_long"] < 0.25:
+            #         bpl = 80
+            #     elif 0.25 <= params["sl_long"] < 0.33:
+            #         bpl = 60
+            #     elif 0.33 <= params["sl_long"] < 0.4:
+            #         bpl = 50
+            #     elif 0.4 <= params["sl_long"] < 0.5:
+            #         bpl = 50
+            #     elif 0.5 <= params["sl_long"] < 0.67:
+            #         bpl = 30
+            #     elif 0.67 <= params["sl_long"] < 0.8:
+            #         bpl = 25
+            #     elif 0.8 <= params["sl_long"] < 1.0:
+            #         bpl = 20
+            #     elif 1.0 <= params["sl_long"] < 1.25:
+            #         bpl = 20
+            #     elif 1.25 <= params["sl_long"] < 1.33:
+            #         bpl = 15
+            #     elif 1.33 <= params["sl_long"] < 1.67:
+            #         bpl = 15
+            #     elif 1.67 <= params["sl_long"] < 2.0:
+            #         bpl = 10
+            #     elif 2.0 <= params["sl_long"] <= 2.5:
+            #         bpl = 10
+            #     else:
+            #         bpl = 1
+            #     l_entry = bpl * market_fee
+            #     l_win_fee = bpl * (1 + params["ltp1"] / 100) * limit_fee
+            #     l_loss_fee = bpl * (1 - params["sl_long"] / 100) * market_fee
+            #     long_reward = bpl * (params["ltp1"] / 100) - l_entry - l_win_fee
+            #     long_risk = bpl * (params["sl_long"] / 100) + l_entry + l_loss_fee
+            #     rr_long = round(long_reward / long_risk, 3)
+            #
+            #     if 0 < params["sl_short"] < 0.2:
+            #         bps = 100
+            #     elif 0.2 <= params["sl_short"] < 0.25:
+            #         bps = 80
+            #     elif 0.25 <= params["sl_short"] < 0.33:
+            #         bps = 60
+            #     elif 0.33 <= params["sl_short"] < 0.4:
+            #         bps = 50
+            #     elif 0.4 <= params["sl_short"] < 0.5:
+            #         bps = 50
+            #     elif 0.5 <= params["sl_short"] < 0.67:
+            #         bps = 30
+            #     elif 0.67 <= params["sl_short"] < 0.8:
+            #         bps = 25
+            #     elif 0.8 <= params["sl_short"] < 1.0:
+            #         bps = 20
+            #     elif 1.0 <= params["sl_short"] < 1.25:
+            #         bps = 20
+            #     elif 1.25 <= params["sl_short"] < 1.33:
+            #         bps = 15
+            #     elif 1.33 <= params["sl_short"] < 1.67:
+            #         bps = 15
+            #     elif 1.67 <= params["sl_short"] < 2.0:
+            #         bps = 10
+            #     elif 2.0 <= params["sl_short"] <= 2.5:
+            #         bps = 10
+            #     else:
+            #         bps = 1
+            #     s_entry = bps * market_fee
+            #     s_win_fee = bps * (1 - params["stp1"] / 100) * limit_fee
+            #     s_loss_fee = bps * (1 + params["sl_short"] / 100) * market_fee
+            #     short_reward = bps * (params["stp1"] / 100) - s_entry - s_win_fee
+            #     short_risk = bps * (params["sl_short"] / 100) + s_entry + s_loss_fee
+            #     rr_min = 5.0
+            #     rr_max = 10.0
+            #     rr_short = round(short_reward / short_risk, 3)
+            #     if (rr_min < rr_long) and (rr_long < rr_max) and (rr_min < rr_short) and (rr_short < rr_max):
+            #         # print("RR ok")
+            #         break
+            #     if (rr_long > rr_max) or (rr_long < rr_min):
+            #         params["sl_long"] = round(random.uniform(0.1, 2.5), 1)
+            #         params["ltp1"] = round(random.uniform(0.2, 5.0), 1)
+            #         # print(f"{rr_long} Recalculating RR long")
+            #     if (rr_short > rr_max) or (rr_short < rr_min):
+            #         params["sl_short"] = round(random.uniform(0.1, 2.5), 1)
+            #         params["stp1"] = round(random.uniform(0.2, 5.0), 1)
+            #         # print(f"{rr_short} Recalculating RR short")
 
             # # MFI multiplier must be large enough that YPOS doesn't skew signals to shorts
             # if params["mfi_mult"] < (params["mfi_ypos"] * 60):
@@ -494,33 +494,33 @@ class Nsga2:
                 #     (indiv_2.pnl_cv < indiv_1.pnl_cv or indiv_2.max_dd < indiv_1.max_dd):
                 #     indiv_1.dominated_by += 1
 
-                # v. 4.1.11
-                if (indiv_1.pnl > indiv_2.pnl) and (((indiv_1.max_dd <= indiv_2.max_dd) and
-                                                     (indiv_1.win_rate >= indiv_2.win_rate) and
-                                                     ((indiv_1.max_dd < indiv_2.max_dd) or
-                                                      (indiv_1.win_rate > indiv_2.win_rate))) or
-                                                    ((indiv_1.max_dd <= indiv_2.max_dd) and
-                                                     (indiv_1.num_trades >= indiv_2.num_trades) and
-                                                     ((indiv_1.max_dd < indiv_2.max_dd) or
-                                                      (indiv_1.num_trades > indiv_2.num_trades))) or
-                                                    ((indiv_1.win_rate >= indiv_2.win_rate) and
-                                                     (indiv_1.num_trades >= indiv_2.num_trades) and
-                                                     ((indiv_1.win_rate > indiv_2.win_rate) or
-                                                      (indiv_1.num_trades > indiv_2.num_trades)))):
-                    indiv_1.dominates.append(id_2)
-                elif (indiv_2.pnl > indiv_1.pnl) and (((indiv_2.max_dd <= indiv_1.max_dd) and
-                                                       (indiv_2.win_rate >= indiv_1.win_rate) and
-                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
-                                                       (indiv_2.win_rate > indiv_1.win_rate))) or
-                                                      ((indiv_2.max_dd <= indiv_1.max_dd) and
-                                                       (indiv_2.num_trades >= indiv_1.num_trades) and
-                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
-                                                       (indiv_2.num_trades > indiv_1.num_trades))) or
-                                                      (indiv_2.win_rate >= indiv_1.win_rate) and
-                                                      (indiv_2.num_trades >= indiv_1.num_trades) and
-                                                      ((indiv_2.win_rate > indiv_1.win_rate) or
-                                                       (indiv_2.num_trades > indiv_1.num_trades))):
-                    indiv_1.dominated_by += 1
+                # # v. 4.1.11
+                # if (indiv_1.pnl > indiv_2.pnl) and (((indiv_1.max_dd <= indiv_2.max_dd) and
+                #                                      (indiv_1.win_rate >= indiv_2.win_rate) and
+                #                                      ((indiv_1.max_dd < indiv_2.max_dd) or
+                #                                       (indiv_1.win_rate > indiv_2.win_rate))) or
+                #                                     ((indiv_1.max_dd <= indiv_2.max_dd) and
+                #                                      (indiv_1.num_trades >= indiv_2.num_trades) and
+                #                                      ((indiv_1.max_dd < indiv_2.max_dd) or
+                #                                       (indiv_1.num_trades > indiv_2.num_trades))) or
+                #                                     ((indiv_1.win_rate >= indiv_2.win_rate) and
+                #                                      (indiv_1.num_trades >= indiv_2.num_trades) and
+                #                                      ((indiv_1.win_rate > indiv_2.win_rate) or
+                #                                       (indiv_1.num_trades > indiv_2.num_trades)))):
+                #     indiv_1.dominates.append(id_2)
+                # elif (indiv_2.pnl > indiv_1.pnl) and (((indiv_2.max_dd <= indiv_1.max_dd) and
+                #                                        (indiv_2.win_rate >= indiv_1.win_rate) and
+                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
+                #                                        (indiv_2.win_rate > indiv_1.win_rate))) or
+                #                                       ((indiv_2.max_dd <= indiv_1.max_dd) and
+                #                                        (indiv_2.num_trades >= indiv_1.num_trades) and
+                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
+                #                                        (indiv_2.num_trades > indiv_1.num_trades))) or
+                #                                       (indiv_2.win_rate >= indiv_1.win_rate) and
+                #                                       (indiv_2.num_trades >= indiv_1.num_trades) and
+                #                                       ((indiv_2.win_rate > indiv_1.win_rate) or
+                #                                        (indiv_2.num_trades > indiv_1.num_trades))):
+                #     indiv_1.dominated_by += 1
 
                 # # v 4.1.11a
                 # if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
@@ -544,17 +544,17 @@ class Nsga2:
                 # elif indiv_2.pnl > indiv_1.pnl:
                 #     indiv_1.dominated_by += 1
 
-                # # v. 4.1.13
-                # if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
-                #                                     (indiv_1.num_trades >= indiv_2.num_trades)) and \
-                #                                     ((indiv_1.max_dd < indiv_2.max_dd) or
-                #                                     (indiv_1.num_trades > indiv_2.num_trades)):
-                #     indiv_1.dominates.append(id_2)
-                # elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
-                #                                       (indiv_2.num_trades >= indiv_1.num_trades)) and \
-                #                                       ((indiv_2.max_dd < indiv_1.max_dd) or
-                #                                       (indiv_2.num_trades > indiv_1.num_trades)):
-                #     indiv_1.dominated_by += 1
+                # v. 4.1.13
+                if (indiv_1.pnl > indiv_2.pnl) and ((indiv_1.max_dd <= indiv_2.max_dd) and
+                                                    (indiv_1.num_trades >= indiv_2.num_trades)) and \
+                                                    ((indiv_1.max_dd < indiv_2.max_dd) or
+                                                    (indiv_1.num_trades > indiv_2.num_trades)):
+                    indiv_1.dominates.append(id_2)
+                elif (indiv_2.pnl > indiv_1.pnl) and ((indiv_2.max_dd <= indiv_1.max_dd) and
+                                                      (indiv_2.num_trades >= indiv_1.num_trades)) and \
+                                                      ((indiv_2.max_dd < indiv_1.max_dd) or
+                                                      (indiv_2.num_trades > indiv_1.num_trades)):
+                    indiv_1.dominated_by += 1
 
             if indiv_1.dominated_by == 0:
                 if len(fronts) == 0:
